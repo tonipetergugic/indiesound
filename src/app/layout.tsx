@@ -3,6 +3,7 @@ import "./globals.css";
 import { Inter } from "next/font/google";
 import Sidebar from "@/components/Sidebar";
 import Topbar from "@/components/Topbar";
+import PlayerBar from "@/components/PlayerBar";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -53,6 +54,7 @@ export default function RootLayout({
         >
           {children}
         </main>
+        <PlayerBar />
       </body>
     </html>
   );
