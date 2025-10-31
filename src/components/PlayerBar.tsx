@@ -1,6 +1,6 @@
 "use client";
 
-import { Play, Pause, SkipBack, SkipForward, Volume2 } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { usePlayer } from "@/context/PlayerContext";
 
@@ -9,17 +9,17 @@ export default function PlayerBar() {
   const [progress, setProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isHoveringProgress, setIsHoveringProgress] = useState(false);
+  const [volume, setVolume] = useState(1);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isHoveringVolume, setIsHoveringVolume] = useState(false);
+  const [isDraggingVolume, setIsDraggingVolume] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const progressBarRef = useRef<HTMLDivElement | null>(null);
-
-  // Track previous track URL to detect when it changes
   const previousTrackUrlRef = useRef<string | null>(null);
 
-  // Handle track changes and play/pause toggling
   useEffect(() => {
     if (!audioRef.current) return;
 
-    // If no track selected, pause and clear
     if (!currentTrack?.audioUrl) {
       audioRef.current.pause();
       audioRef.current.src = "";
@@ -31,15 +31,12 @@ export default function PlayerBar() {
     const newTrackUrl = currentTrack.audioUrl;
     const isSameTrack = previousTrackUrlRef.current === newTrackUrl;
 
-    // If it's a different track, load the new source
     if (!isSameTrack) {
       audioRef.current.src = newTrackUrl;
       setProgress(0);
       previousTrackUrlRef.current = newTrackUrl;
     }
 
-    // Control play/pause based on isPlaying state
-    // This does NOT reset currentTime - it preserves the current playback position
     if (isPlaying) {
       audioRef.current.play().catch(() => {
         setPlayingState(false);
@@ -49,7 +46,6 @@ export default function PlayerBar() {
     }
   }, [currentTrack, isPlaying, setPlayingState]);
 
-  // Update progress from audio element
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -73,6 +69,40 @@ export default function PlayerBar() {
     };
   }, [isDragging]);
 
+  useEffect(() => {
+    const savedVolume = localStorage.getItem("indiesound-volume");
+    if (savedVolume !== null) {
+      const volumeValue = parseFloat(savedVolume);
+      if (!isNaN(volumeValue) && volumeValue >= 0 && volumeValue <= 1) {
+        setVolume(volumeValue);
+        if (audioRef.current) {
+          audioRef.current.volume = volumeValue;
+        }
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
+      audioRef.current.muted = isMuted;
+    }
+  }, [volume, isMuted]);
+
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      setIsDraggingVolume(false);
+    };
+
+    if (isDraggingVolume) {
+      document.addEventListener("mouseup", handleGlobalMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener("mouseup", handleGlobalMouseUp);
+    };
+  }, [isDraggingVolume]);
+
   const duration = audioRef.current?.duration || 0;
   const currentTime = audioRef.current?.currentTime || 0;
 
@@ -84,13 +114,38 @@ export default function PlayerBar() {
   };
 
   const handleNext = () => {
-    console.log("Next track pressed");
     // TODO: Integrate with playlist logic
   };
 
   const handlePrevious = () => {
-    console.log("Previous track pressed");
     // TODO: Integrate with playlist logic
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = parseFloat(e.target.value);
+    setVolume(v);
+    setIsMuted(false);
+    if (audioRef.current) {
+      audioRef.current.volume = v;
+      audioRef.current.muted = false;
+    }
+    localStorage.setItem("indiesound-volume", v.toString());
+  };
+
+  const handleVolumeMouseDown = () => {
+    setIsDraggingVolume(true);
+  };
+
+  const handleVolumeMouseUp = () => {
+    setIsDraggingVolume(false);
+  };
+
+  const handleMuteToggle = () => {
+    const newMuted = !isMuted;
+    setIsMuted(newMuted);
+    if (audioRef.current) {
+      audioRef.current.muted = newMuted;
+    }
   };
 
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -398,22 +453,83 @@ export default function PlayerBar() {
           minWidth: 0,
         }}
       >
-        <Volume2 size={18} color="#B3B3B3" />
+        <button
+          onClick={handleMuteToggle}
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            padding: "4px",
+            display: "flex",
+            alignItems: "center",
+            color: "#FFFFFF",
+            opacity: 0.7,
+            transition: "opacity 0.2s",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.opacity = "1";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.opacity = "0.7";
+          }}
+        >
+          {isMuted || volume === 0 ? (
+            <VolumeX size={18} />
+          ) : (
+            <Volume2 size={18} />
+          )}
+        </button>
         <div
           style={{
+            position: "relative",
             width: "80px",
-            height: "3px",
-            backgroundColor: "#1a1a1d",
-            borderRadius: "2px",
-            overflow: "hidden",
-            cursor: "pointer",
+            height: "10px",
+            display: "flex",
+            alignItems: "center",
           }}
+          onMouseEnter={() => setIsHoveringVolume(true)}
+          onMouseLeave={() => setIsHoveringVolume(false)}
         >
           <div
             style={{
-              width: "70%",
-              height: "100%",
-              backgroundColor: "#00FFC6",
+              position: "absolute",
+              width: "100%",
+              height: "4px",
+              backgroundColor: "#333",
+              borderRadius: "2px",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              width: `${volume * 100}%`,
+              height: "4px",
+              backgroundColor: isHoveringVolume || isDraggingVolume ? "#00E0B0" : "#00FFC6",
+              borderRadius: "2px",
+              pointerEvents: "none",
+              transition: "background-color 0.2s",
+            }}
+          />
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={volume}
+            onChange={handleVolumeChange}
+            onMouseDown={handleVolumeMouseDown}
+            onMouseUp={handleVolumeMouseUp}
+            className={`volume-slider ${isDraggingVolume ? "dragging" : ""}`}
+            style={{
+              position: "absolute",
+              width: "100%",
+              height: "10px",
+              margin: 0,
+              padding: 0,
+              appearance: "none",
+              background: "transparent",
+              cursor: "pointer",
+              zIndex: 1,
             }}
           />
         </div>
@@ -427,5 +543,3 @@ export default function PlayerBar() {
     </div>
   );
 }
-
-
