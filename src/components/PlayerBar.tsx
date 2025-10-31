@@ -1,6 +1,6 @@
 "use client";
 
-import { Play, Pause, SkipBack, SkipForward } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Volume2 } from "lucide-react";
 import { useState, useEffect } from "react";
 
 export default function PlayerBar() {
@@ -33,110 +33,234 @@ export default function PlayerBar() {
         bottom: 0,
         left: 0,
         right: 0,
-        height: "85px",
-        backgroundColor: "#141416",
-        borderTop: "1px solid #1e1e1e",
+        height: "60px",
+        backgroundColor: "#0E0E10",
+        borderTop: "1px solid rgba(255, 255, 255, 0.1)",
+        boxShadow: "0 -2px 10px rgba(0, 0, 0, 0.3)",
         display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
         alignItems: "center",
-        padding: "0 12px",
+        justifyContent: "space-between",
+        padding: "0 16px",
         zIndex: 50,
+        gap: "16px",
       }}
     >
-      {/* Upper section */}
+      {/* Left Section: Cover + Track Info */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
-          width: "55%",
-          minWidth: "620px",
-          maxWidth: "800px",
-          gap: "14px",
+          gap: "10px",
+          flex: "0 0 auto",
+          minWidth: 0,
         }}
       >
-        {/* Track Info */}
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <div
+        <div
+          style={{
+            width: "48px",
+            height: "48px",
+            backgroundColor: "#121214",
+            borderRadius: "4px",
+            flexShrink: 0,
+          }}
+        />
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            minWidth: 0,
+          }}
+        >
+          <span
             style={{
-              width: "44px",
-              height: "44px",
-              backgroundColor: "#242428",
-              borderRadius: "6px",
+              color: "#FFFFFF",
+              fontWeight: 500,
+              fontSize: "0.875rem",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
             }}
-          ></div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <span style={{ color: "#fff", fontWeight: 600, fontSize: "0.9rem" }}>
-              Demo Track
-            </span>
-            <span style={{ color: "#B3B3B3", fontSize: "0.78rem" }}>
-              Various Artists
-            </span>
-          </div>
+          >
+            Demo Track
+          </span>
+          <span
+            style={{
+              color: "#B3B3B3",
+              fontSize: "0.75rem",
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            Various Artists
+          </span>
         </div>
+      </div>
 
+      {/* Center Section: Controls + Progress */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: "4px",
+          flex: "1 1 auto",
+          minWidth: 0,
+          maxWidth: "600px",
+        }}
+      >
         {/* Controls */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: "14px",
+            gap: "8px",
           }}
         >
-          <SkipBack size={16} color="#B3B3B3" />
-          {isPlaying ? (
-            <Pause
-              size={24}
-              color="#00FFC6"
-              style={{ cursor: "pointer" }}
-              onClick={() => setIsPlaying(false)}
-            />
-          ) : (
-            <Play
-              size={24}
-              color="#00FFC6"
-              style={{ cursor: "pointer" }}
-              onClick={() => setIsPlaying(true)}
-            />
-          )}
-          <SkipForward size={16} color="#B3B3B3" />
+          <button
+            onClick={() => {}}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: "4px",
+              display: "flex",
+              alignItems: "center",
+              color: "#B3B3B3",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = "#00FFC6";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = "#B3B3B3";
+            }}
+          >
+            <SkipBack size={18} />
+          </button>
+          <button
+            onClick={() => setIsPlaying(!isPlaying)}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: "4px",
+              display: "flex",
+              alignItems: "center",
+              color: "#00FFC6",
+              transition: "color 0.2s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = "#00E0B0";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = "#00FFC6";
+            }}
+          >
+            {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
+          </button>
+          <button
+            onClick={() => {}}
+            style={{
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+              padding: "4px",
+              display: "flex",
+              alignItems: "center",
+              color: "#B3B3B3",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = "#00FFC6";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = "#B3B3B3";
+            }}
+          >
+            <SkipForward size={18} />
+          </button>
         </div>
 
-        {/* Time */}
+        {/* Progress Bar + Time */}
         <div
           style={{
-            minWidth: "80px",
-            textAlign: "right",
-            color: "#B3B3B3",
-            fontSize: "0.8rem",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            width: "100%",
           }}
         >
-          {formatTime(currentTime)} / {formatTime(duration)}
+          <span
+            style={{
+              color: "#B3B3B3",
+              fontSize: "0.6875rem",
+              minWidth: "35px",
+              textAlign: "right",
+            }}
+          >
+            {formatTime(currentTime)}
+          </span>
+          <div
+            style={{
+              flex: "1 1 auto",
+              height: "3px",
+              backgroundColor: "#1a1a1d",
+              borderRadius: "2px",
+              overflow: "hidden",
+              cursor: "pointer",
+              position: "relative",
+            }}
+          >
+            <div
+              style={{
+                width: `${progress}%`,
+                height: "100%",
+                backgroundColor: "#00FFC6",
+                transition: "width 0.2s linear",
+              }}
+            />
+          </div>
+          <span
+            style={{
+              color: "#B3B3B3",
+              fontSize: "0.6875rem",
+              minWidth: "35px",
+              textAlign: "left",
+            }}
+          >
+            {formatTime(duration)}
+          </span>
         </div>
       </div>
 
-      {/* Progress Bar */}
+      {/* Right Section: Volume */}
       <div
         style={{
-          width: "55%",
-          minWidth: "620px",
-          maxWidth: "800px",
-          height: "4px",
-          backgroundColor: "#242428",
-          borderRadius: "2px",
-          overflow: "hidden",
-          marginTop: "8px",
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          flex: "0 0 auto",
+          minWidth: 0,
         }}
       >
+        <Volume2 size={18} color="#B3B3B3" />
         <div
           style={{
-            width: `${progress}%`,
-            height: "100%",
-            backgroundColor: "#00FFC6",
-            transition: "width 0.2s linear",
+            width: "80px",
+            height: "3px",
+            backgroundColor: "#1a1a1d",
+            borderRadius: "2px",
+            overflow: "hidden",
+            cursor: "pointer",
           }}
-        ></div>
+        >
+          <div
+            style={{
+              width: "70%",
+              height: "100%",
+              backgroundColor: "#00FFC6",
+            }}
+          />
+        </div>
       </div>
     </div>
   );
