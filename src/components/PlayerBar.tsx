@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from "react";
 import { usePlayer } from "@/context/PlayerContext";
 
 export default function PlayerBar() {
-  const { currentTrack, isPlaying, togglePlay, setPlayingState } = usePlayer();
+  const { currentTrack, isPlaying, togglePlay, setPlayingState, nextTrack, prevTrack, handleTrackEnd, queue, currentIndex } = usePlayer();
   const [progress, setProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [isHoveringProgress, setIsHoveringProgress] = useState(false);
@@ -113,9 +113,21 @@ export default function PlayerBar() {
     return `${minutes}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const handleNext = () => {};
+  // Prüfe, ob es einen nächsten oder vorherigen Track gibt
+  const hasNextTrack = currentIndex >= 0 && currentIndex < queue.length - 1;
+  const hasPrevTrack = currentIndex > 0;
 
-  const handlePrevious = () => {};
+  const handleNext = () => {
+    if (hasNextTrack) {
+      nextTrack();
+    }
+  };
+
+  const handlePrevious = () => {
+    if (hasPrevTrack) {
+      prevTrack();
+    }
+  };
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = parseFloat(e.target.value);
@@ -205,23 +217,30 @@ export default function PlayerBar() {
         backgroundColor: "#0E0E10",
         borderTop: "1px solid rgba(255, 255, 255, 0.1)",
         boxShadow: "0 -2px 10px rgba(0, 0, 0, 0.3)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
         padding: "0 16px",
         zIndex: 50,
-        gap: "16px",
       }}
     >
       <div
         style={{
+          position: "relative",
           display: "flex",
           alignItems: "center",
-          gap: "10px",
-          flex: "0 0 auto",
-          minWidth: 0,
+          justifyContent: "space-between",
+          width: "100%",
+          height: "100%",
         }}
       >
+        {/* Left: Track Cover, Titel, Artist */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            flex: "0 0 250px",
+            overflow: "hidden",
+          }}
+        >
         <div
           style={{
             width: "48px",
@@ -239,6 +258,8 @@ export default function PlayerBar() {
             display: "flex",
             flexDirection: "column",
             minWidth: 0,
+            flex: "1 1 auto",
+            overflow: "hidden",
           }}
         >
           <span
@@ -267,45 +288,53 @@ export default function PlayerBar() {
         </div>
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "4px",
-          flex: "1 1 auto",
-          minWidth: 0,
-          maxWidth: "600px",
-        }}
-      >
+        {/* Center: Steuerung (Prev, Play/Pause, Next, Fortschrittsbalken) */}
+        <div
+          style={{
+            position: "absolute",
+            left: "50%",
+            transform: "translateX(-50%)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "4px",
+            width: "360px",
+            pointerEvents: "none",
+          }}
+        >
         <div
           style={{
             display: "flex",
             alignItems: "center",
             gap: "8px",
+            pointerEvents: "auto",
           }}
         >
           <button
             onClick={handlePrevious}
-            disabled={!currentTrack}
+            disabled={!hasPrevTrack || !currentTrack}
             style={{
               background: "none",
               border: "none",
-              cursor: currentTrack ? "pointer" : "not-allowed",
+              cursor: hasPrevTrack && currentTrack ? "pointer" : "not-allowed",
               padding: "4px",
               display: "flex",
               alignItems: "center",
               color: "#B3B3B3",
-              opacity: currentTrack ? 1 : 0.5,
-              transition: "color 0.2s",
+              opacity: hasPrevTrack && currentTrack ? 1 : 0.5,
+              transition: "opacity 0.2s, color 0.2s",
+              pointerEvents: "auto",
             }}
             onMouseEnter={(e) => {
-              if (currentTrack) {
+              if (hasPrevTrack && currentTrack) {
+                e.currentTarget.style.opacity = "0.8";
                 e.currentTarget.style.color = "#00FFC6";
               }
             }}
             onMouseLeave={(e) => {
-              if (currentTrack) {
+              if (hasPrevTrack && currentTrack) {
+                e.currentTarget.style.opacity = "1";
                 e.currentTarget.style.color = "#B3B3B3";
               }
             }}
@@ -323,16 +352,19 @@ export default function PlayerBar() {
               display: "flex",
               alignItems: "center",
               color: "#00FFC6",
-              transition: "color 0.2s",
+              transition: "opacity 0.2s, color 0.2s",
               opacity: currentTrack ? 1 : 0.5,
+              pointerEvents: "auto",
             }}
             onMouseEnter={(e) => {
               if (currentTrack) {
+                e.currentTarget.style.opacity = "0.8";
                 e.currentTarget.style.color = "#00E0B0";
               }
             }}
             onMouseLeave={(e) => {
               if (currentTrack) {
+                e.currentTarget.style.opacity = "1";
                 e.currentTarget.style.color = "#00FFC6";
               }
             }}
@@ -341,25 +373,28 @@ export default function PlayerBar() {
           </button>
           <button
             onClick={handleNext}
-            disabled={!currentTrack}
+            disabled={!hasNextTrack || !currentTrack}
             style={{
               background: "none",
               border: "none",
-              cursor: currentTrack ? "pointer" : "not-allowed",
+              cursor: hasNextTrack && currentTrack ? "pointer" : "not-allowed",
               padding: "4px",
               display: "flex",
               alignItems: "center",
               color: "#B3B3B3",
-              opacity: currentTrack ? 1 : 0.5,
-              transition: "color 0.2s",
+              opacity: hasNextTrack && currentTrack ? 1 : 0.5,
+              transition: "opacity 0.2s, color 0.2s",
+              pointerEvents: "auto",
             }}
             onMouseEnter={(e) => {
-              if (currentTrack) {
+              if (hasNextTrack && currentTrack) {
+                e.currentTarget.style.opacity = "0.8";
                 e.currentTarget.style.color = "#00FFC6";
               }
             }}
             onMouseLeave={(e) => {
-              if (currentTrack) {
+              if (hasNextTrack && currentTrack) {
+                e.currentTarget.style.opacity = "1";
                 e.currentTarget.style.color = "#B3B3B3";
               }
             }}
@@ -374,6 +409,7 @@ export default function PlayerBar() {
             alignItems: "center",
             gap: "8px",
             width: "100%",
+            pointerEvents: "auto",
           }}
         >
           <span
@@ -433,17 +469,19 @@ export default function PlayerBar() {
             {formatTime(duration)}
           </span>
         </div>
-      </div>
+        </div>
 
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          flex: "0 0 auto",
-          minWidth: 0,
-        }}
-      >
+        {/* Right: Lautstärkeregler */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            gap: "8px",
+            flex: "0 0 250px",
+            overflow: "hidden",
+          }}
+        >
         <button
           onClick={handleMuteToggle}
           style={{
@@ -524,10 +562,11 @@ export default function PlayerBar() {
             }}
           />
         </div>
+        </div>
       </div>
       <audio
         ref={audioRef}
-        onEnded={() => setPlayingState(false)}
+        onEnded={handleTrackEnd}
         preload="none"
       />
     </div>

@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import TrackCard from "@/components/TrackCard";
+import { usePlayer } from "@/context/PlayerContext";
+import type { Track } from "@/context/PlayerContext";
 
 type TrackRow = {
   id: string;
@@ -25,6 +27,7 @@ type TrackItem = {
 
 export default function LibraryPage() {
   const supabase = useMemo(() => createClientComponentClient(), []);
+  const { setQueue } = usePlayer();
   const [tracks, setTracks] = useState<TrackItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -100,6 +103,19 @@ export default function LibraryPage() {
     fontSize: "1rem",
   };
 
+  // Konvertiere TrackItem[] zu Track[] für die Queue
+  const tracksForQueue: Track[] = tracks.map((t) => ({
+    title: t.title,
+    artist: t.artist,
+    coverUrl: t.coverPublicUrl,
+    audioUrl: t.audioPublicUrl,
+  }));
+
+  const handleTrackClick = (index: number) => {
+    // Setze alle Tracks als Queue und starte am angeklickten Index
+    setQueue(tracksForQueue, index);
+  };
+
   return (
     <div style={pageStyle}>
       {loading ? (
@@ -110,13 +126,14 @@ export default function LibraryPage() {
         <div style={emptyStateStyle}>No tracks uploaded yet.</div>
       ) : (
         <div style={gridStyle}>
-          {tracks.map((t) => (
+          {tracks.map((t, index) => (
             <TrackCard
               key={t.id}
               title={t.title}
               artist={t.artist}
               imageUrl={t.coverPublicUrl || undefined}
               audioUrl={t.audioPublicUrl || undefined}
+              onPlayClick={() => handleTrackClick(index)}
             />
           ))}
         </div>

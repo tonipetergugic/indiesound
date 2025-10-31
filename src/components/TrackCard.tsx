@@ -8,11 +8,12 @@ interface TrackCardProps {
   artist: string;
   imageUrl?: string;
   audioUrl?: string;
+  onPlayClick?: () => void;
 }
 
-export default function TrackCard({ title, artist, imageUrl, audioUrl }: TrackCardProps) {
+export default function TrackCard({ title, artist, imageUrl, audioUrl, onPlayClick }: TrackCardProps) {
   const [isHovering, setIsHovering] = useState(false);
-  const { currentTrack, isPlaying, playTrack, togglePlay } = usePlayer();
+  const { currentTrack, isPlaying, togglePlay } = usePlayer();
 
   const isCurrentTrack = currentTrack?.title === title && currentTrack?.artist === artist;
   const showPauseIcon = isCurrentTrack && isPlaying;
@@ -21,8 +22,8 @@ export default function TrackCard({ title, artist, imageUrl, audioUrl }: TrackCa
     e.stopPropagation();
     if (isCurrentTrack && isPlaying) {
       togglePlay();
-    } else if (audioUrl) {
-      playTrack({ title, artist, coverUrl: imageUrl || null, audioUrl });
+    } else if (onPlayClick) {
+      onPlayClick();
     }
   };
 
