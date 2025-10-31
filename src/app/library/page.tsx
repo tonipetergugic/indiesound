@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
-import { usePlayer } from "@/context/PlayerContext";
+import TrackCard from "@/components/TrackCard";
 
 type TrackRow = {
   id: string;
@@ -19,16 +19,12 @@ type TrackItem = {
   id: string;
   title: string;
   artist: string;
-  genre: string;
-  bpm: string;
-  keySignature: string;
   coverPublicUrl: string | null;
   audioPublicUrl: string | null;
 };
 
 export default function LibraryPage() {
   const supabase = useMemo(() => createClientComponentClient(), []);
-  const { playTrack, currentTrack, isPlaying } = usePlayer();
   const [tracks, setTracks] = useState<TrackItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,9 +57,6 @@ export default function LibraryPage() {
             id: row.id,
             title: row.title ?? "Untitled",
             artist: row.artist ?? "Unknown Artist",
-            genre: row.genre ?? "—",
-            bpm: row.bpm != null ? String(row.bpm) : "—",
-            keySignature: row.key_signature ?? "—",
             coverPublicUrl,
             audioPublicUrl,
           };
@@ -84,21 +77,6 @@ export default function LibraryPage() {
       isMounted = false;
     };
   }, [supabase]);
-
-  const handleTrackClick = (track: TrackItem) => {
-    if (!track.audioPublicUrl) return;
-    
-    playTrack({
-      title: track.title,
-      artist: track.artist,
-      coverUrl: track.coverPublicUrl,
-      audioUrl: track.audioPublicUrl,
-    });
-  };
-
-  const isCurrentTrack = (track: TrackItem) => {
-    return currentTrack?.audioUrl === track.audioPublicUrl;
-  };
 
   const pageStyle: React.CSSProperties = {
     backgroundColor: "#0E0E10",
@@ -132,96 +110,15 @@ export default function LibraryPage() {
         <div style={emptyStateStyle}>No tracks uploaded yet.</div>
       ) : (
         <div style={gridStyle}>
-          {tracks.map((t) => {
-            return (
-              <div
-                key={t.id}
-                onClick={() => handleTrackClick(t)}
-                style={{
-                  backgroundColor: "#121214",
-                  borderRadius: "16px",
-                  padding: "16px",
-                  boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
-                  transition: "transform 0.2s, box-shadow 0.2s, background 0.2s",
-                  cursor: "pointer",
-                  border: isCurrentTrack(t) && isPlaying ? "2px solid #00FFC6" : "2px solid transparent",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "translateY(-2px)";
-                  e.currentTarget.style.boxShadow = "0 6px 18px rgba(0,0,0,0.4)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow = "0 2px 10px rgba(0,0,0,0.3)";
-                }}
-              >
-                <div
-                  style={{
-                    width: "100%",
-                    aspectRatio: "1/1",
-                    backgroundColor: "#1a1a1d",
-                    backgroundImage: t.coverPublicUrl
-                      ? `url(${t.coverPublicUrl})`
-                      : undefined,
-                    backgroundSize: "cover",
-                    backgroundPosition: "center",
-                    borderRadius: "12px",
-                    boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
-                    marginBottom: "12px",
-                  }}
-                />
-
-                <div style={{ flex: 1, minWidth: 0, marginTop: 12 }}>
-                  <h3
-                    style={{
-                      color: "#FFFFFF",
-                      fontSize: "1rem",
-                      margin: 0,
-                      marginBottom: 4,
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {t.title}
-                  </h3>
-                  <p
-                    style={{
-                      color: "#B3B3B3",
-                      fontSize: "0.85rem",
-                      margin: 0,
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {t.artist}
-                  </p>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 8,
-                    color: "#B3B3B3",
-                    fontSize: "0.8rem",
-                    marginTop: 10,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <span style={{ background: "#18181B", padding: "4px 8px", borderRadius: 8 }}>
-                    {t.genre}
-                  </span>
-                  <span style={{ background: "#18181B", padding: "4px 8px", borderRadius: 8 }}>
-                    {t.bpm} BPM
-                  </span>
-                  <span style={{ background: "#18181B", padding: "4px 8px", borderRadius: 8 }}>
-                    {t.keySignature}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
+          {tracks.map((t) => (
+            <TrackCard
+              key={t.id}
+              title={t.title}
+              artist={t.artist}
+              imageUrl={t.coverPublicUrl || undefined}
+              audioUrl={t.audioPublicUrl || undefined}
+            />
+          ))}
         </div>
       )}
     </div>

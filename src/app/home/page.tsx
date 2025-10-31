@@ -7,6 +7,7 @@ export default function HomePage() {
     title: `Demo Track ${i + 1}`,
     artist: "Various Artists",
     imageUrl: `https://picsum.photos/300?random=${i}`,
+    audioUrl: `https://www.soundhelix.com/examples/mp3/SoundHelix-Song-${i + 1}.mp3`,
   }));
 
   return (
@@ -24,6 +25,7 @@ export default function HomePage() {
           title={item.title}
           artist={item.artist}
           imageUrl={item.imageUrl}
+          audioUrl={item.audioUrl}
         />
       ))}
     </div>
