@@ -36,7 +36,7 @@ export default function ArtistUploadPage() {
       setSessionChecked(true);
     })();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       if (!session) {
         router.replace("/artist/login");
       } else {
@@ -74,6 +74,13 @@ export default function ArtistUploadPage() {
         .upload(audioFile.name, audioFile, { upsert: true });
       if (audioError) throw audioError;
 
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log("🧠 USER DEBUG:", user);
+      if (!user) {
+        console.warn("⚠️ No user detected — session may be missing or expired.");
+      }
+
       // Insert track record
       const { error: insertError } = await supabase.from("tracks").insert([
         {
@@ -84,6 +91,7 @@ export default function ArtistUploadPage() {
           key_signature: keySignature,
           cover_url: coverFile.name,
           audio_url: audioFile.name,
+          user_id: user?.id,
         },
       ]);
       if (insertError) throw insertError;

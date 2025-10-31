@@ -32,7 +32,7 @@ export default function ArtistRegisterPage() {
       }
 
       const { error: insertError } = await supabase.from("artists").insert([
-        { id: userId, display_name: displayName },
+        { user_id: userId, display_name: displayName },
       ]);
       if (insertError) throw insertError;
 
