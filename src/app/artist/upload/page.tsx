@@ -76,10 +76,6 @@ export default function ArtistUploadPage() {
 
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
-      console.log("🧠 USER DEBUG:", user);
-      if (!user) {
-        console.warn("⚠️ No user detected — session may be missing or expired.");
-      }
 
       // Insert track record
       const { error: insertError } = await supabase.from("tracks").insert([
