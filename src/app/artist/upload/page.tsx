@@ -1,11 +1,15 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Image as ImageIcon, Music, CheckCircle } from "lucide-react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { useRouter } from "next/navigation";
 
 export default function ArtistUploadPage() {
   const supabase = createClientComponentClient();
+  const router = useRouter();
+  const [sessionChecked, setSessionChecked] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [artist, setArtist] = useState("");
   const [genre, setGenre] = useState("");
@@ -17,6 +21,34 @@ export default function ArtistUploadPage() {
   const [message, setMessage] = useState("");
   const coverInputRef = useRef<HTMLInputElement | null>(null);
   const audioInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Check session on mount and watch for auth changes
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!isMounted) return;
+      if (!data.session) {
+        router.replace("/artist/login");
+      } else {
+        setUserEmail(data.session.user.email ?? null);
+      }
+      setSessionChecked(true);
+    })();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        router.replace("/artist/login");
+      } else {
+        setUserEmail(session.user.email ?? null);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, [router, supabase]);
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,6 +104,12 @@ export default function ArtistUploadPage() {
     }
   };
 
+  if (!sessionChecked) {
+    return (
+      <div style={{ minHeight: "100vh", backgroundColor: "#0E0E10" }} />
+    );
+  }
+
   return (
     <div
       style={{
@@ -86,6 +124,46 @@ export default function ArtistUploadPage() {
         boxShadow: "0 0 20px rgba(0,0,0,0.3)",
       }}
     >
+      {/* Auth header */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingBottom: "12px",
+          borderBottom: "1px solid #222",
+          color: "#FFFFFF",
+        }}
+      >
+        <span style={{ fontSize: "14px" }}>
+          🎤 Logged in as {userEmail ?? ""}
+        </span>
+        <button
+          onClick={async () => {
+            await supabase.auth.signOut();
+            router.replace("/artist/login");
+          }}
+          style={{
+            backgroundColor: "#00FFC6",
+            color: "#0E0E10",
+            fontWeight: "bold",
+            fontSize: "13px",
+            padding: "10px 14px",
+            borderRadius: "10px",
+            border: "none",
+            cursor: "pointer",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#00E0B0";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#00FFC6";
+          }}
+        >
+          Sign Out
+        </button>
+      </div>
+
       <h2 style={{ fontSize: "26px", fontWeight: "bold", color: "#FFFFFF" }}>
         IndieSound for Artists – Upload Track
       </h2>
