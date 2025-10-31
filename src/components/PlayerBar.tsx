@@ -113,13 +113,9 @@ export default function PlayerBar() {
     return `${minutes}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const handleNext = () => {
-    // TODO: Integrate with playlist logic
-  };
+  const handleNext = () => {};
 
-  const handlePrevious = () => {
-    // TODO: Integrate with playlist logic
-  };
+  const handlePrevious = () => {};
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = parseFloat(e.target.value);
@@ -217,7 +213,6 @@ export default function PlayerBar() {
         gap: "16px",
       }}
     >
-      {/* Left Section: Cover + Track Info */}
       <div
         style={{
           display: "flex",
@@ -272,7 +267,6 @@ export default function PlayerBar() {
         </div>
       </div>
 
-      {/* Center Section: Controls + Progress */}
       <div
         style={{
           display: "flex",
@@ -284,7 +278,6 @@ export default function PlayerBar() {
           maxWidth: "600px",
         }}
       >
-        {/* Controls */}
         <div
           style={{
             display: "flex",
@@ -375,7 +368,6 @@ export default function PlayerBar() {
           </button>
         </div>
 
-        {/* Progress Bar + Time */}
         <div
           style={{
             display: "flex",
@@ -443,7 +435,6 @@ export default function PlayerBar() {
         </div>
       </div>
 
-      {/* Right Section: Volume */}
       <div
         style={{
           display: "flex",
@@ -534,7 +525,6 @@ export default function PlayerBar() {
           />
         </div>
       </div>
-      {/* Global Audio Element */}
       <audio
         ref={audioRef}
         onEnded={() => setPlayingState(false)}

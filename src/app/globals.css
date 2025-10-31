@@ -1,13 +1,9 @@
-/* === IndieSound Global Styles === */
 :root {
-  /* Farben */
   --background: #0E0E10;
   --text-primary: #FFFFFF;
   --text-secondary: #B3B3B3;
   --accent: #00FFC6;
   --accent-hover: #00E0B0;
-
-  /* Typografie */
   --font-family: 'Inter', sans-serif;
 }
 
@@ -17,7 +13,8 @@
   box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
   height: 100%;
   background-color: var(--background);
   color: var(--text-primary);
@@ -39,7 +36,8 @@ button {
   font: inherit;
 }
 
-input, textarea {
+input,
+textarea {
   font-family: inherit;
   color: inherit;
   background: none;
@@ -54,7 +52,6 @@ input, textarea {
   color: #000;
 }
 
-/* Range Slider Styles for Volume Control */
 input[type="range"].volume-slider {
   -webkit-appearance: none;
   appearance: none;
