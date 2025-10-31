@@ -4,6 +4,7 @@ import { Inter } from "next/font/google";
 import Sidebar from "@/components/Sidebar";
 import Topbar from "@/components/Topbar";
 import PlayerBar from "@/components/PlayerBar";
+import { PlayerProvider } from "@/context/PlayerContext";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -34,27 +35,29 @@ export default function RootLayout({
           color: "var(--text-primary)",
         }}
       >
-        {/* Sidebar (linke Spalte, über volle Höhe) */}
-        <div style={{ gridArea: "sidebar" }}>
-          <Sidebar />
-        </div>
+        <PlayerProvider>
+          {/* Sidebar (linke Spalte, über volle Höhe) */}
+          <div style={{ gridArea: "sidebar" }}>
+            <Sidebar />
+          </div>
 
-        {/* Topbar (oben, rechte Seite) */}
-        <div style={{ gridArea: "topbar" }}>
-          <Topbar />
-        </div>
+          {/* Topbar (oben, rechte Seite) */}
+          <div style={{ gridArea: "topbar" }}>
+            <Topbar />
+          </div>
 
-        {/* Hauptinhalt (unter der Topbar) */}
-        <main
-          style={{
-            gridArea: "main",
-            padding: "20px",
-            overflowY: "auto",
-          }}
-        >
-          {children}
-        </main>
-        <PlayerBar />
+          {/* Hauptinhalt (unter der Topbar) */}
+          <main
+            style={{
+              gridArea: "main",
+              padding: "20px",
+              overflowY: "auto",
+            }}
+          >
+            {children}
+          </main>
+          <PlayerBar />
+        </PlayerProvider>
       </body>
     </html>
   );

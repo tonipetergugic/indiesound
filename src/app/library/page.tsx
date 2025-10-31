@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { usePlayer } from "@/context/PlayerContext";
 
 type TrackRow = {
   id: string;
@@ -27,11 +28,10 @@ type TrackItem = {
 
 export default function LibraryPage() {
   const supabase = useMemo(() => createClientComponentClient(), []);
+  const { playTrack, currentTrack, isPlaying } = usePlayer();
   const [tracks, setTracks] = useState<TrackItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [playingId, setPlayingId] = useState<string | null>(null);
-  const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
 
   useEffect(() => {
     let isMounted = true;
@@ -82,35 +82,23 @@ export default function LibraryPage() {
     fetchTracks();
     return () => {
       isMounted = false;
-      // Stop audio on unmount
-      Object.values(audioRefs.current).forEach((el) => {
-        try {
-          el?.pause();
-        } catch {}
-      });
     };
   }, [supabase]);
 
-  function togglePlay(trackId: string) {
-    const current = audioRefs.current[trackId];
-    if (!current) return;
-
-    // Pause any other playing track
-    Object.entries(audioRefs.current).forEach(([id, el]) => {
-      if (id !== trackId && el && !el.paused) {
-        try {
-          el.pause();
-        } catch {}
-      }
+  const handleTrackClick = (track: TrackItem) => {
+    if (!track.audioPublicUrl) return;
+    
+    playTrack({
+      title: track.title,
+      artist: track.artist,
+      coverUrl: track.coverPublicUrl,
+      audioUrl: track.audioPublicUrl,
     });
+  };
 
-    if (current.paused) {
-      current.play().then(() => setPlayingId(trackId)).catch(() => {});
-    } else {
-      current.pause();
-      setPlayingId(null);
-    }
-  }
+  const isCurrentTrack = (track: TrackItem) => {
+    return currentTrack?.audioUrl === track.audioPublicUrl;
+  };
 
   const pageStyle: React.CSSProperties = {
     backgroundColor: "#0E0E10",
@@ -148,6 +136,7 @@ export default function LibraryPage() {
             return (
               <div
                 key={t.id}
+                onClick={() => handleTrackClick(t)}
                 style={{
                   backgroundColor: "#121214",
                   borderRadius: "16px",
@@ -155,6 +144,7 @@ export default function LibraryPage() {
                   boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
                   transition: "transform 0.2s, box-shadow 0.2s, background 0.2s",
                   cursor: "pointer",
+                  border: isCurrentTrack(t) && isPlaying ? "2px solid #00FFC6" : "2px solid transparent",
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = "translateY(-2px)";
@@ -181,66 +171,32 @@ export default function LibraryPage() {
                   }}
                 />
 
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      togglePlay(t.id);
-                    }}
+                <div style={{ flex: 1, minWidth: 0, marginTop: 12 }}>
+                  <h3
                     style={{
-                      appearance: "none",
-                      border: "none",
-                      borderRadius: 999,
-                      width: 36,
-                      height: 36,
-                      backgroundColor: playingId === t.id ? "#00E0B0" : "#00FFC6",
-                      color: "#0E0E10",
-                      display: "grid",
-                      placeItems: "center",
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      transition: "background 0.2s, transform 0.05s",
+                      color: "#FFFFFF",
+                      fontSize: "1rem",
+                      margin: 0,
+                      marginBottom: 4,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
                     }}
-                    onMouseDown={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.transform =
-                        "scale(0.98)";
-                    }}
-                    onMouseUp={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.transform =
-                        "scale(1)";
-                    }}
-                    title={playingId === t.id ? "Pause" : "Play"}
                   >
-                    {playingId === t.id ? "❚❚" : "►"}
-                  </button>
-
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <h3
-                      style={{
-                        color: "#FFFFFF",
-                        fontSize: "1rem",
-                        margin: 0,
-                        marginBottom: 4,
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      {t.title}
-                    </h3>
-                    <p
-                      style={{
-                        color: "#B3B3B3",
-                        fontSize: "0.85rem",
-                        margin: 0,
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      {t.artist}
-                    </p>
-                  </div>
+                    {t.title}
+                  </h3>
+                  <p
+                    style={{
+                      color: "#B3B3B3",
+                      fontSize: "0.85rem",
+                      margin: 0,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {t.artist}
+                  </p>
                 </div>
 
                 <div
@@ -263,16 +219,6 @@ export default function LibraryPage() {
                     {t.keySignature}
                   </span>
                 </div>
-
-                <audio
-                  ref={(el) => {
-                    audioRefs.current[t.id] = el;
-                  }}
-                  src={t.audioPublicUrl ?? undefined}
-                  onEnded={() => setPlayingId(null)}
-                  preload="none"
-                  style={{ width: "100%", marginTop: 10 }}
-                />
               </div>
             );
           })}
