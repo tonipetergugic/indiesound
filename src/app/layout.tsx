@@ -5,6 +5,7 @@ import Sidebar from "@/components/Sidebar";
 import Topbar from "@/components/Topbar";
 import PlayerBar from "@/components/PlayerBar";
 import { PlayerProvider } from "@/context/PlayerContext";
+import SupabaseProvider from "./SupabaseProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -35,29 +36,31 @@ export default function RootLayout({
           color: "var(--text-primary)",
         }}
       >
-        <PlayerProvider>
-          {/* Sidebar (linke Spalte, über volle Höhe) */}
-          <div style={{ gridArea: "sidebar" }}>
-            <Sidebar />
-          </div>
+        <SupabaseProvider>
+          <PlayerProvider>
+            {/* Sidebar (linke Spalte, über volle Höhe) */}
+            <div style={{ gridArea: "sidebar" }}>
+              <Sidebar />
+            </div>
 
-          {/* Topbar (oben, rechte Seite) */}
-          <div style={{ gridArea: "topbar" }}>
-            <Topbar />
-          </div>
+            {/* Topbar (oben, rechte Seite) */}
+            <div style={{ gridArea: "topbar" }}>
+              <Topbar />
+            </div>
 
-          {/* Hauptinhalt (unter der Topbar) */}
-          <main
-            style={{
-              gridArea: "main",
-              padding: "20px",
-              overflowY: "auto",
-            }}
-          >
-            {children}
-          </main>
-          <PlayerBar />
-        </PlayerProvider>
+            {/* Hauptinhalt (unter der Topbar) */}
+            <main
+              style={{
+                gridArea: "main",
+                padding: "20px",
+                overflowY: "auto",
+              }}
+            >
+              {children}
+            </main>
+            <PlayerBar />
+          </PlayerProvider>
+        </SupabaseProvider>
       </body>
     </html>
   );

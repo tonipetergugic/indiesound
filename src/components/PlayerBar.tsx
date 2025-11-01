@@ -487,7 +487,7 @@ export default function PlayerBar() {
       </div>
       <audio
         ref={audioRef}
-        src={currentTrack?.audioUrl || ""}
+        src={currentTrack?.audioUrl ?? undefined}
         onEnded={handleTrackEnd}
         preload="none"
       />

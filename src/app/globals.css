@@ -1,3 +1,6 @@
+/* ==========================================================================
+   Root Variables - IndieSound Design Tokens
+   ========================================================================== */
 :root {
   --background: #0E0E10;
   --text-primary: #FFFFFF;
@@ -7,12 +10,18 @@
   --font-family: 'Inter', sans-serif;
 }
 
+/* ==========================================================================
+   Base Reset
+   ========================================================================== */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
+/* ==========================================================================
+   Typography & Body
+   ========================================================================== */
 html,
 body {
   height: 100%;
@@ -23,6 +32,14 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+::selection {
+  background: var(--accent);
+  color: #000;
+}
+
+/* ==========================================================================
+   Elements
+   ========================================================================== */
 a {
   color: inherit;
   text-decoration: none;
@@ -47,11 +64,25 @@ textarea {
   border-radius: 4px;
 }
 
-::selection {
-  background: var(--accent);
-  color: #000;
+/* ==========================================================================
+   Scrollbar Styling
+   ========================================================================== */
+::-webkit-scrollbar {
+  width: 8px;
 }
 
+::-webkit-scrollbar-thumb {
+  background: #1e1e1e;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #333;
+}
+
+/* ==========================================================================
+   Volume Slider Styling
+   ========================================================================== */
 input[type="range"].volume-slider {
   appearance: none;
   -webkit-appearance: none;
@@ -112,4 +143,40 @@ input[type="range"].volume-slider::-moz-range-thumb {
 
 input[type="range"].volume-slider::-moz-range-thumb:hover {
   background-color: #00E0B0;
+}
+
+/* ==========================================================================
+   Focus & Transition Rules
+   ========================================================================== */
+
+/* Remove all blue focus outlines globally (including Radix UI elements) */
+*:focus,
+*:focus-visible,
+*:focus-within {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Specific fix for Radix UI elements */
+[data-radix-popper-content-wrapper]:focus,
+[data-radix-popper-content-wrapper]:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Ensure buttons and inputs stay clean */
+button,
+button:focus,
+button:focus-visible,
+input:focus,
+textarea:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}
+
+/* Smooth transitions for hover states */
+button,
+a {
+  transition: all 0.2s ease-in-out;
 }

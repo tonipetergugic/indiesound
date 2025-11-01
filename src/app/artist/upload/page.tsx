@@ -128,46 +128,6 @@ export default function ArtistUploadPage() {
         boxShadow: "0 0 20px rgba(0,0,0,0.3)",
       }}
     >
-      {/* Auth header */}
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          paddingBottom: "12px",
-          borderBottom: "1px solid #222",
-          color: "#FFFFFF",
-        }}
-      >
-        <span style={{ fontSize: "14px" }}>
-          🎤 Logged in as {userEmail ?? ""}
-        </span>
-        <button
-          onClick={async () => {
-            await supabase.auth.signOut();
-            router.replace("/artist/login");
-          }}
-          style={{
-            backgroundColor: "#00FFC6",
-            color: "#0E0E10",
-            fontWeight: "bold",
-            fontSize: "13px",
-            padding: "10px 14px",
-            borderRadius: "10px",
-            border: "none",
-            cursor: "pointer",
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#00E0B0";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#00FFC6";
-          }}
-        >
-          Sign Out
-        </button>
-      </div>
-
       <h2 style={{ fontSize: "26px", fontWeight: "bold", color: "#FFFFFF" }}>
         IndieSound for Artists – Upload Track
       </h2>
