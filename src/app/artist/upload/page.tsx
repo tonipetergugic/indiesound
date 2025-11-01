@@ -5,6 +5,22 @@ import { Image as ImageIcon, Music, CheckCircle } from "lucide-react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { useRouter } from "next/navigation";
 
+const getAudioDuration = (file: File): Promise<number> => {
+  return new Promise((resolve) => {
+    const audio = document.createElement("audio");
+    audio.preload = "metadata";
+    audio.src = URL.createObjectURL(file);
+    audio.onloadedmetadata = () => {
+      URL.revokeObjectURL(audio.src);
+      resolve(Math.round(audio.duration)); // duration in seconds
+    };
+    audio.onerror = () => {
+      URL.revokeObjectURL(audio.src);
+      resolve(0); // fallback to 0 if error
+    };
+  });
+};
+
 export default function ArtistUploadPage() {
   const supabase = createClientComponentClient();
   const router = useRouter();
@@ -62,6 +78,9 @@ export default function ArtistUploadPage() {
     }
 
     try {
+      // Get audio duration before uploading
+      const duration = await getAudioDuration(audioFile);
+
       // Upload cover
       const { error: coverError } = await supabase.storage
         .from("covers")
@@ -87,6 +106,7 @@ export default function ArtistUploadPage() {
           key_signature: keySignature,
           cover_url: coverFile.name,
           audio_url: audioFile.name,
+          duration: duration,
           user_id: user?.id,
         },
       ]);

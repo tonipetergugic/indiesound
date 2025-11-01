@@ -3,6 +3,7 @@
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { usePlayer } from "@/context/PlayerContext";
+import { formatDuration } from "@/utils/formatDuration";
 
 // Styles
 const containerStyle: React.CSSProperties = {
@@ -284,12 +285,6 @@ export default function PlayerBar() {
     };
   }, [isDragging]);
 
-  const formatTime = useCallback((seconds: number) => {
-    if (!seconds || isNaN(seconds)) return "0:00";
-    const minutes = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${minutes}:${secs.toString().padStart(2, "0")}`;
-  }, []);
 
   const hasNextTrack = currentIndex >= 0 && currentIndex < queue.length - 1;
   const hasPrevTrack = currentIndex > 0;
@@ -435,7 +430,7 @@ export default function PlayerBar() {
           </div>
 
           <div style={progressContainerStyle}>
-            <span style={{ ...timeStyle, textAlign: "right" }}>{formatTime(currentTime)}</span>
+            <span style={{ ...timeStyle, textAlign: "right" }}>{formatDuration(Math.floor(currentTime))}</span>
             <div
               ref={progressBarRef}
               onClick={handleProgressClick}
@@ -448,7 +443,7 @@ export default function PlayerBar() {
                 <div style={progressFillStyle} />
               </div>
             </div>
-            <span style={{ ...timeStyle, textAlign: "left" }}>{formatTime(duration)}</span>
+            <span style={{ ...timeStyle, textAlign: "left" }}>{formatDuration(Math.floor(duration))}</span>
           </div>
         </div>
 
