@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { Upload } from "lucide-react";
@@ -8,12 +8,84 @@ import { Upload } from "lucide-react";
 export default function CreatePlaylistPage() {
   const router = useRouter();
   const supabase = createClientComponentClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [coverUrl, setCoverUrl] = useState("");
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [uploadError, setUploadError] = useState("");
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Check file size (5 MB = 5 * 1024 * 1024 bytes)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setUploadError("File size exceeds 5 MB. Please choose a smaller image.");
+      return;
+    }
+
+    // Check file type
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Please select a valid image file.");
+      return;
+    }
+
+    setUploadError("");
+    setUploading(true);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setUploadError("You must be logged in to upload images.");
+        setUploading(false);
+        return;
+      }
+
+      // Generate unique filename
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${user.id}-${Date.now()}.${fileExt || "jpg"}`;
+      const filePath = fileName;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from("playlist-covers")
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        setUploadError(uploadError.message || "Failed to upload image.");
+        setUploading(false);
+        return;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from("playlist-covers")
+        .getPublicUrl(filePath);
+
+      if (urlData?.publicUrl) {
+        setCoverUrl(urlData.publicUrl);
+        setUploadError("");
+      } else {
+        setUploadError("Failed to get image URL.");
+      }
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : "An unexpected error occurred.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleCoverClick = () => {
+    fileInputRef.current?.click();
+  };
 
   const handleCreatePlaylist = async () => {
     if (!name.trim()) {
@@ -85,6 +157,13 @@ export default function CreatePlaylistPage() {
             alignItems: "center",
           }}
         >
+          <input
+            type="file"
+            accept="image/*"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            style={{ display: "none" }}
+          />
           <div
             style={{
               width: "160px",
@@ -99,17 +178,34 @@ export default function CreatePlaylistPage() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              cursor: "pointer",
+              cursor: uploading ? "wait" : "pointer",
               transition: "all 0.2s",
               boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
+              position: "relative",
             }}
-            onClick={() => {
-              const url = prompt("Enter cover image URL (optional):");
-              if (url) setCoverUrl(url);
+            onClick={handleCoverClick}
+            onMouseEnter={(e) => {
+              if (!uploading) {
+                e.currentTarget.style.border = "2px solid rgba(0, 255, 198, 0.5)";
+                e.currentTarget.style.boxShadow = "0 0 15px rgba(0, 255, 198, 0.3)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.border = "none";
+              e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,0,0,0.3)";
             }}
           >
-            {!coverUrl && <Upload size={32} color="#B3B3B3" />}
+            {uploading ? (
+              <div style={{ color: "#00FFC6", fontSize: "14px" }}>Uploading...</div>
+            ) : (
+              !coverUrl && <Upload size={32} color="#B3B3B3" />
+            )}
           </div>
+          {uploadError && (
+            <p style={{ color: "#FF6B6B", fontSize: "12px", marginTop: "-5px", maxWidth: "160px" }}>
+              {uploadError}
+            </p>
+          )}
         </div>
 
         {/* Playlist Name */}
