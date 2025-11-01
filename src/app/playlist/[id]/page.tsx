@@ -6,6 +6,7 @@ import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { Play, Pause, MoreHorizontal, Plus } from "lucide-react";
 import { formatDuration } from "@/utils/formatDuration";
 import { usePlayer } from "@/context/PlayerContext";
+import { usePalette } from "color-thief-react";
 import {
   DndContext,
   closestCenter,
@@ -272,6 +273,68 @@ export default function PlaylistDetailPage() {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  // Extract dominant color from playlist cover image
+  const { data: paletteData } = usePalette(
+    playlist?.cover_url || "",
+    5,
+    "rgbArray",
+    {
+      crossOrigin: "anonymous",
+    }
+  );
+
+  // Generate gradient from average of first 3 palette colors for better color matching
+  const headerGradient = useMemo(() => {
+    if (!playlist?.cover_url || !paletteData || !paletteData[0]) {
+      return "linear-gradient(180deg, rgba(0,255,198,0.1) 0%, #0E0E10 100%)";
+    }
+    
+    // Use average of first 3 colors for more neutral tone
+    const numColors = Math.min(3, paletteData.length);
+    const avgColor = [
+      Math.round(paletteData.slice(0, numColors).reduce((sum, c) => sum + c[0], 0) / numColors),
+      Math.round(paletteData.slice(0, numColors).reduce((sum, c) => sum + c[1], 0) / numColors),
+      Math.round(paletteData.slice(0, numColors).reduce((sum, c) => sum + c[2], 0) / numColors),
+    ];
+    
+    let [r, g, b] = avgColor;
+    
+    // Calculate brightness and saturation
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const saturation = max === 0 ? 0 : (max - min) / max;
+    
+    // Adjust color based on brightness
+    if (brightness < 80) {
+      // Dark colors: brighten by 50
+      r = Math.min(255, r + 50);
+      g = Math.min(255, g + 50);
+      b = Math.min(255, b + 50);
+    }
+    
+    // Boost saturation if too low
+    if (saturation < 0.2 && max > 0) {
+      const boostFactor = 1.2;
+      const range = max - min;
+      
+      if (range > 0) {
+        const newRange = range * boostFactor;
+        const diff = newRange - range;
+        
+        // Increase each channel proportionally
+        r = Math.min(255, Math.max(0, r + diff * ((r - min) / range)));
+        g = Math.min(255, Math.max(0, g + diff * ((g - min) / range)));
+        b = Math.min(255, Math.max(0, b + diff * ((b - min) / range)));
+      }
+    }
+    
+    // Use adjusted opacity
+    const opacity = 0.6;
+    
+    return `linear-gradient(180deg, rgba(${r},${g},${b},${opacity}) 0%, #0E0E10 100%)`;
+  }, [playlist?.cover_url, paletteData]);
 
   const fetchPlaylistAndTracks = useCallback(async () => {
     if (!params?.id) return;
@@ -540,34 +603,67 @@ export default function PlaylistDetailPage() {
       {/* HEADER */}
       <div
         style={{
+          position: "relative",
           display: "flex",
           alignItems: "center",
           gap: "25px",
           padding: "40px 0",
-          background:
-            "linear-gradient(180deg, rgba(0,255,198,0.1) 0%, rgba(14,14,16,1) 100%)",
           borderRadius: "16px",
           paddingLeft: "40px",
+          overflow: "hidden",
         }}
       >
-        {/* Cover */}
+        {/* Blurred background layer (Spotify-style) */}
+        {playlist.cover_url && (
+          <div
+            style={{
+              backgroundImage: `url(${playlist.cover_url})`,
+              filter: "blur(60px) brightness(0.6)",
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 0,
+              transition: "background-image 0.6s ease, filter 0.6s ease",
+            }}
+          />
+        )}
+        
+        {/* Gradient overlay for text contrast */}
         <div
           style={{
-            width: "200px",
-            height: "200px",
-            backgroundColor: "#18181A",
-            borderRadius: "8px",
-            backgroundImage: playlist.cover_url
-              ? `url(${playlist.cover_url})`
-              : "linear-gradient(135deg, #00FFC6 0%, #00E0B0 100%)",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-            boxShadow: "0 4px 30px rgba(0,0,0,0.4)",
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: headerGradient,
+            zIndex: 1,
+            transition: "background 0.6s ease",
           }}
         />
+        
+        {/* Content */}
+        <div style={{ display: "flex", alignItems: "center", gap: "25px", position: "relative", zIndex: 2 }}>
+          {/* Cover */}
+          <div
+            style={{
+              width: "200px",
+              height: "200px",
+              backgroundColor: "#18181A",
+              borderRadius: "8px",
+              backgroundImage: playlist.cover_url
+                ? `url(${playlist.cover_url})`
+                : "linear-gradient(135deg, #00FFC6 0%, #00E0B0 100%)",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              boxShadow: "0 4px 30px rgba(0,0,0,0.4)",
+            }}
+          />
 
-        {/* Info */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          {/* Info */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
           <h4 style={{ fontSize: "14px", color: "#B3B3B3" }}>Playlist</h4>
           <h1 style={{ fontSize: "48px", fontWeight: "700", margin: "0" }}>
             {playlist.name}
@@ -586,6 +682,7 @@ export default function PlaylistDetailPage() {
           <p style={{ color: "#B3B3B3", fontSize: "14px" }}>
             Created at {new Date(playlist.created_at).toLocaleDateString("en-GB")}
           </p>
+        </div>
         </div>
       </div>
 
