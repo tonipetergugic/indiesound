@@ -9,9 +9,10 @@ export default function ArtistProfileForm() {
 
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [website, setWebsite] = useState("");
   const [instagram, setInstagram] = useState("");
   const [facebook, setFacebook] = useState("");
-  const [twitter, setTwitter] = useState("");
+  const [x, setX] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -26,18 +27,27 @@ export default function ArtistProfileForm() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("bio, avatar_url, instagram, facebook, twitter")
-        .eq("id", user.id)
+      const { data: artist } = await supabase
+        .from("artists")
+        .select("bio, avatar_url, social_links")
+        .eq("user_id", user.id)
         .single();
 
-      if (profile) {
-        setBio(profile.bio || "");
-        setAvatarUrl(profile.avatar_url || null);
-        setInstagram(profile.instagram || "");
-        setFacebook(profile.facebook || "");
-        setTwitter(profile.twitter || "");
+      if (artist) {
+        setBio(artist.bio || "");
+        setAvatarUrl(artist.avatar_url || null);
+        
+        // Parse social_links JSON if it exists
+        if (artist.social_links) {
+          const socialLinks = typeof artist.social_links === 'string' 
+            ? JSON.parse(artist.social_links) 
+            : artist.social_links;
+          setWebsite(socialLinks.website || "");
+          setInstagram(socialLinks.instagram || "");
+          setFacebook(socialLinks.facebook || "");
+          // Accept both "x" and "twitter" keys for X (Twitter)
+          setX(socialLinks.x || socialLinks.twitter || "");
+        }
       }
       setLoading(false);
     };
@@ -75,21 +85,37 @@ export default function ArtistProfileForm() {
 
     if (!user) return;
 
-    // Nur Felder aktualisieren, die Werte enthalten
-    const updateData: Record<string, any> = {};
-    if (bio) updateData.bio = bio;
-    if (avatarUrl) updateData.avatar_url = avatarUrl;
-    if (instagram) updateData.instagram = instagram;
-    if (facebook) updateData.facebook = facebook;
-    if (twitter) updateData.twitter = twitter;
+    // Build social_links object
+    const socialLinks: Record<string, string> = {};
+    if (website.trim()) socialLinks.website = website.trim();
+    if (instagram.trim()) socialLinks.instagram = instagram.trim();
+    if (facebook.trim()) socialLinks.facebook = facebook.trim();
+    // Store X (Twitter) under "twitter" key to match existing Supabase data
+    if (x.trim()) socialLinks.twitter = x.trim();
+
+    // Prepare update data
+    const updateData: Record<string, any> = {
+      bio: bio || null,
+      avatar_url: avatarUrl || null,
+      social_links: Object.keys(socialLinks).length > 0 ? socialLinks : null,
+    };
+
+    // Log the complete updateData object to verify JSON output
+    console.log("Update data:", JSON.stringify(updateData, null, 2));
 
     const { error } = await supabase
-      .from("profiles")
+      .from("artists")
       .update(updateData)
-      .eq("id", user.id);
+      .eq("user_id", user.id);
 
     setSaving(false);
-    setMessage(error ? "❌ Error saving profile." : "✅ Profile updated successfully!");
+    if (error) {
+      setMessage("❌ Error saving profile.");
+      console.error("Error updating artist profile:", error);
+    } else {
+      setMessage("✅ Profile updated successfully!");
+      console.log("Artist profile updated successfully");
+    }
   };
 
   const handleReset = async () => {
@@ -99,18 +125,32 @@ export default function ArtistProfileForm() {
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("bio, avatar_url, instagram, facebook, twitter")
-      .eq("id", user.id)
+    const { data: artist } = await supabase
+      .from("artists")
+      .select("bio, avatar_url, social_links")
+      .eq("user_id", user.id)
       .single();
 
-    if (profile) {
-      setBio(profile.bio || "");
-      setAvatarUrl(profile.avatar_url || null);
-      setInstagram(profile.instagram || "");
-      setFacebook(profile.facebook || "");
-      setTwitter(profile.twitter || "");
+    if (artist) {
+      setBio(artist.bio || "");
+      setAvatarUrl(artist.avatar_url || null);
+      
+      // Parse social_links JSON if it exists
+      if (artist.social_links) {
+        const socialLinks = typeof artist.social_links === 'string' 
+          ? JSON.parse(artist.social_links) 
+          : artist.social_links;
+        setWebsite(socialLinks.website || "");
+        setInstagram(socialLinks.instagram || "");
+        setFacebook(socialLinks.facebook || "");
+        // Accept both "x" and "twitter" keys for X (Twitter)
+        setX(socialLinks.x || socialLinks.twitter || "");
+      } else {
+        setWebsite("");
+        setInstagram("");
+        setFacebook("");
+        setX("");
+      }
     }
 
     setMessage("🔄 Changes reset to last saved version.");
@@ -229,6 +269,12 @@ export default function ArtistProfileForm() {
       {/* Socials */}
       <div style={{ display: "grid", gap: "12px" }}>
         <input
+          value={website}
+          onChange={(e) => setWebsite(e.target.value)}
+          placeholder="Website URL"
+          style={inputStyle}
+        />
+        <input
           value={instagram}
           onChange={(e) => setInstagram(e.target.value)}
           placeholder="Instagram URL"
@@ -241,9 +287,9 @@ export default function ArtistProfileForm() {
           style={inputStyle}
         />
         <input
-          value={twitter}
-          onChange={(e) => setTwitter(e.target.value)}
-          placeholder="X / Twitter URL"
+          value={x}
+          onChange={(e) => setX(e.target.value)}
+          placeholder="X (Twitter) URL"
           style={inputStyle}
         />
       </div>
