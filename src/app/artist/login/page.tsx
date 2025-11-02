@@ -16,15 +16,30 @@ export default function ArtistLoginPage() {
     event.preventDefault();
     setLoading(true);
     setError(null);
+
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
+
       if (signInError) {
         setError(signInError.message);
+        return;
+      }
+
+      // ✅ Hole das Profil + prüfe Rolle
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", data.user.id)
+        .single();
+
+      if (profile?.role === "artist") {
+        router.replace("/artist/home");
       } else {
-        router.replace("/artist/upload");
+        setError("Access denied: This account is not registered as an artist.");
+        await supabase.auth.signOut();
       }
     } catch (e: any) {
       setError(e?.message ?? "Unknown error");

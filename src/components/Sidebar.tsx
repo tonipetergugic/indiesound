@@ -10,6 +10,7 @@ export default function Sidebar() {
   const router = useRouter();
   const [hovered, setHovered] = useState<string | null>(null);
   const [showLibraryMenu, setShowLibraryMenu] = useState(false);
+  const [showCreateMenu, setShowCreateMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Klick außerhalb schließt Popup
@@ -17,6 +18,7 @@ export default function Sidebar() {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setShowLibraryMenu(false);
+        setShowCreateMenu(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -170,6 +172,92 @@ export default function Sidebar() {
                       >
                         <ListMusic size={18} />
                         Playlists
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            if (item.name === "Create") {
+              return (
+                <div key={item.name} style={{ position: "relative" }}>
+                  <button
+                    onClick={() => setShowCreateMenu((prev) => !prev)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      color:
+                        active || showCreateMenu
+                          ? "var(--accent)"
+                          : hovered === item.name
+                          ? "var(--accent-hover)"
+                          : "var(--text-secondary)",
+                      fontWeight: active || showCreateMenu ? 600 : 400,
+                      transition: "color 0.2s",
+                      cursor: "pointer",
+                      background: "none",
+                      border: "none",
+                      padding: 0,
+                      textAlign: "left",
+                      fontFamily: "inherit",
+                      fontSize: "inherit",
+                    }}
+                    onMouseEnter={() => setHovered(item.name)}
+                    onMouseLeave={() =>
+                      setHovered((h) => (h === item.name ? null : h))
+                    }
+                  >
+                    <Icon size={20} />
+                    {item.name}
+                  </button>
+
+                  {showCreateMenu && (
+                    <div
+                      ref={menuRef}
+                      style={{
+                        position: "absolute",
+                        left: "180px",
+                        top: "10px",
+                        backgroundColor: "#1A1A1D",
+                        border: "1px solid #2a2a2a",
+                        borderRadius: "12px",
+                        padding: "10px 0",
+                        width: "180px",
+                        boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+                        zIndex: 100,
+                        display: "flex",
+                        flexDirection: "column",
+                        animation: "fadeIn 0.12s ease-out",
+                      }}
+                    >
+                      <button
+                        onClick={() => {
+                          router.push("/create/playlist");
+                          setShowCreateMenu(false);
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "10px",
+                          color: "#FFFFFF",
+                          padding: "10px 16px",
+                          background: "none",
+                          border: "none",
+                          textAlign: "left",
+                          cursor: "pointer",
+                          fontSize: "0.95rem",
+                        }}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.backgroundColor = "rgba(0,255,198,0.15)")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.backgroundColor = "transparent")
+                        }
+                      >
+                        <Music size={18} />
+                        Create Playlist
                       </button>
                     </div>
                   )}

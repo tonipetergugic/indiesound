@@ -4,6 +4,9 @@ import { useRouter } from "next/navigation";
 import { useSupabaseClient, useUser } from "@supabase/auth-helpers-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { User, Settings, Shield, LogOut } from "lucide-react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 export default function Topbar() {
   const supabase = useSupabaseClient();
@@ -14,6 +17,42 @@ export default function Topbar() {
     await supabase.auth.signOut();
     router.push("/login");
   };
+
+  const [role, setRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    const supabase = createClientComponentClient();
+
+    const fetchRole = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setRole(null);
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      setRole(profile?.role || null);
+    };
+
+    // Initial fetch
+    fetchRole();
+
+    // Aktualisierung bei Login/Logout
+    const { data: listener } = supabase.auth.onAuthStateChange(() => {
+      fetchRole();
+    });
+
+    return () => {
+      listener.subscription.unsubscribe();
+    };
+  }, []);
 
   return (
     <header
@@ -31,6 +70,26 @@ export default function Topbar() {
       <span style={{ color: "#B3B3B3", marginRight: "12px", fontSize: "14px" }}>
         {user?.email ? `Eingeloggt als: ${user.email}` : "Nicht eingeloggt"}
       </span>
+      {role === "artist" && (
+        <Link
+          href="/artist/home"
+          style={{
+            backgroundColor: "#00FFC6",
+            color: "#0E0E10",
+            fontWeight: "bold",
+            borderRadius: "10px",
+            padding: "8px 14px",
+            marginRight: "16px",
+            textDecoration: "none",
+            fontSize: "14px",
+            transition: "background-color 0.15s ease",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#00E0B0")}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#00FFC6")}
+        >
+          Artist Dashboard
+        </Link>
+      )}
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>
           <button
