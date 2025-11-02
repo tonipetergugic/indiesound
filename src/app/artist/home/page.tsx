@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Upload, BarChart3, Music, User } from "lucide-react";
 import UploadTrackForm from "@/components/UploadTrackForm";
-import MyTracks from "@/components/MyTracks";
+import ArtistTracksManager from "@/components/ArtistTracksManager";
 import Stats from "@/components/Stats";
 import ArtistProfileForm from "@/components/ArtistProfileForm";
 
@@ -90,7 +90,7 @@ export default function ArtistHomePage() {
         }}
       >
         {activePanel === "upload" && <UploadTrackForm />}
-        {activePanel === "tracks" && <MyTracks />}
+        {activePanel === "tracks" && <ArtistTracksManager />}
         {activePanel === "stats" && <Stats />}
         {activePanel === "profile" && <ArtistProfileForm />}
         {!activePanel && (
