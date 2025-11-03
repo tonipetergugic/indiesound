@@ -9,6 +9,7 @@ export default function ArtistProfileForm() {
 
   const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarKey, setAvatarKey] = useState<string | null>(null);
   const [website, setWebsite] = useState("");
   const [instagram, setInstagram] = useState("");
   const [facebook, setFacebook] = useState("");
@@ -35,7 +36,16 @@ export default function ArtistProfileForm() {
 
       if (artist) {
         setBio(artist.bio || "");
-        setAvatarUrl(artist.avatar_url || null);
+        const key = artist.avatar_url || null;
+        setAvatarKey(key);
+        if (key) {
+          const { data: publicData } = supabase.storage
+            .from("avatars")
+            .getPublicUrl(key);
+          setAvatarUrl(publicData?.publicUrl || null);
+        } else {
+          setAvatarUrl(null);
+        }
         
         // Parse social_links JSON if it exists
         if (artist.social_links) {
@@ -60,10 +70,35 @@ export default function ArtistProfileForm() {
     if (!file) return;
     setUploading(true);
 
-    const fileName = `artist_avatars/${Date.now()}_${file.name}`;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setMessage("❌ Not authenticated.");
+      setUploading(false);
+      return;
+    }
+
+    // Vor dem Upload: bisherigen Avatar-Key aus DB holen und ggf. löschen
+    const { data: artistData } = await supabase
+      .from("artists")
+      .select("avatar_url")
+      .eq("user_id", user.id)
+      .single();
+    if (artistData?.avatar_url) {
+      const { error: removeError } = await supabase.storage
+        .from("avatars")
+        .remove([artistData.avatar_url]);
+      if (removeError) {
+        console.error("Error removing previous avatar:", removeError);
+        // wir fahren fort, um den neuen Avatar trotzdem zu speichern
+      }
+    }
+
+    const filePath = `${user.id}/${Date.now()}_${file.name.replace(/\s+/g, "_")}`;
     const { error } = await supabase.storage
       .from("avatars")
-      .upload(fileName, file, { upsert: true });
+      .upload(filePath, file, { cacheControl: "3600", upsert: false });
 
     if (error) {
       console.error(error);
@@ -72,8 +107,22 @@ export default function ArtistProfileForm() {
       return;
     }
 
-    const { data } = supabase.storage.from("avatars").getPublicUrl(fileName);
-    setAvatarUrl(data.publicUrl);
+    // Speichere NUR den Storage-Key in der DB
+    const { error: updateError } = await supabase
+      .from("artists")
+      .update({ avatar_url: filePath })
+      .eq("user_id", user.id);
+
+    if (updateError) {
+      console.error(updateError);
+      setMessage("❌ Error saving avatar path.");
+      setUploading(false);
+      return;
+    }
+
+    setAvatarKey(filePath);
+    const { data } = supabase.storage.from("avatars").getPublicUrl(filePath);
+    setAvatarUrl(data.publicUrl || null);
     setUploading(false);
   };
 
@@ -96,7 +145,8 @@ export default function ArtistProfileForm() {
     // Prepare update data
     const updateData: Record<string, any> = {
       bio: bio || null,
-      avatar_url: avatarUrl || null,
+      // NUR den Storage-Key speichern
+      avatar_url: avatarKey || null,
       social_links: Object.keys(socialLinks).length > 0 ? socialLinks : null,
     };
 
@@ -133,7 +183,16 @@ export default function ArtistProfileForm() {
 
     if (artist) {
       setBio(artist.bio || "");
-      setAvatarUrl(artist.avatar_url || null);
+      const key = artist.avatar_url || null;
+      setAvatarKey(key);
+      if (key) {
+        const { data: publicData } = supabase.storage
+          .from("avatars")
+          .getPublicUrl(key);
+        setAvatarUrl(publicData?.publicUrl || null);
+      } else {
+        setAvatarUrl(null);
+      }
       
       // Parse social_links JSON if it exists
       if (artist.social_links) {
