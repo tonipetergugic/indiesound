@@ -202,7 +202,7 @@ export default function ArtistPage() {
       const { data: artistData, error: artistError } = await supabase
         .from("artists")
         .select("id, display_name, bio, avatar_url, user_id, social_links")
-        .eq("id", id)
+        .eq("user_id", id)
         .single();
 
       if (artistError || !artistData) {
@@ -292,16 +292,23 @@ export default function ArtistPage() {
               backgroundColor: "#0E0E10",
             }}
           >
-            <img
-              src={artist.avatar_url || "/default-avatar.png"}
-              alt={artist.display_name}
-              style={{
-                width: "100%",
-                height: "100%",
-                borderRadius: "50%",
-                objectFit: "cover",
-              }}
-            />
+            {(() => {
+              const avatarPublicUrl = artist.avatar_url
+                ? supabase.storage.from("avatars").getPublicUrl(artist.avatar_url).data?.publicUrl
+                : "/default-avatar.png";
+              return (
+                <img
+                  src={avatarPublicUrl || "/default-avatar.png"}
+                  alt={artist.display_name}
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    borderRadius: "50%",
+                    objectFit: "cover",
+                  }}
+                />
+              );
+            })()}
           </div>
 
           {/* Artist Info */}

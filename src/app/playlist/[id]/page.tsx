@@ -56,10 +56,23 @@ type AvailableTrack = {
   artist: string;
 };
 
-function SortableRow({ playlistTrack, supabase }: { playlistTrack: PlaylistTrack; supabase: ReturnType<typeof createClientComponentClient> }) {
+function SortableRow({
+  playlistTrack,
+  supabase,
+  fetchPlaylistAndTracks,
+  onTrackRemoved,
+}: {
+  playlistTrack: PlaylistTrack;
+  supabase: ReturnType<typeof createClientComponentClient>;
+  fetchPlaylistAndTracks: () => Promise<void>;
+  onTrackRemoved: () => void;
+}) {
   const track = playlistTrack.tracks;
   const { playTrack, currentTrack, isPlaying, togglePlay } = usePlayer();
   const [isHoveringCover, setIsHoveringCover] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [isRemoving, setIsRemoving] = useState(false);
   const {
     attributes,
     listeners,
@@ -127,6 +140,21 @@ function SortableRow({ playlistTrack, supabase }: { playlistTrack: PlaylistTrack
       }
     }
   };
+
+  // Close row menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    if (menuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [menuOpen]);
 
   return (
     <tr
@@ -243,6 +271,119 @@ function SortableRow({ playlistTrack, supabase }: { playlistTrack: PlaylistTrack
       <td style={{ padding: "5px 0", color: isCurrentTrack ? "#FFFFFF" : "#B3B3B3" }}>
         {formatDuration(track.duration || 0)}
       </td>
+      {/* Context menu */}
+      <td style={{ padding: "5px 0", textAlign: "right" }}>
+        <div ref={menuRef} style={{ position: "relative", display: "inline-block", paddingRight: "12px" }}>
+          <MoreHorizontal
+            size={20}
+            color="#B3B3B3"
+            style={{ cursor: isRemoving ? "not-allowed" : "pointer", opacity: isRemoving ? 0.5 : 1 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isRemoving) return;
+              setMenuOpen((prev) => !prev);
+            }}
+          />
+          {menuOpen && (
+            <div
+              style={{
+                position: "absolute",
+                top: "100%",
+                right: 0,
+                marginTop: "8px",
+                backgroundColor: "#18181A",
+                borderRadius: "8px",
+                padding: "8px 0",
+                minWidth: "180px",
+                boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+                zIndex: 1000,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div
+                onClick={() => {
+                  console.log("Add to playlist", track.id);
+                  setMenuOpen(false);
+                }}
+                style={{
+                  padding: "10px 16px",
+                  color: "#FFFFFF",
+                  fontSize: "14px",
+                  cursor: "pointer",
+                  transition: "background 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLDivElement).style.background = "rgba(0,255,198,0.1)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLDivElement).style.background = "transparent";
+                }}
+              >
+                Add to playlist
+              </div>
+              <div
+                onClick={async () => {
+                  if (isRemoving) return;
+                  setIsRemoving(true);
+                  try {
+                    const { error } = await supabase
+                      .from("playlist_tracks")
+                      .delete()
+                      .eq("id", playlistTrack.id);
+                    if (error) {
+                      console.error("Error removing from playlist:", error.message);
+                    } else {
+                      setMenuOpen(false);
+                      await fetchPlaylistAndTracks();
+                      onTrackRemoved();
+                    }
+                  } catch (err) {
+                    console.error("Unexpected error removing from playlist:", err);
+                  } finally {
+                    setIsRemoving(false);
+                  }
+                }}
+                style={{
+                  padding: "10px 16px",
+                  color: "#FFFFFF",
+                  fontSize: "14px",
+                  cursor: "pointer",
+                  transition: "background 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLDivElement).style.background = "rgba(0,255,198,0.1)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLDivElement).style.background = "transparent";
+                }}
+              >
+                Remove from playlist
+              </div>
+              <div
+                onClick={() => {
+                  console.log("Show album", track.id);
+                  setMenuOpen(false);
+                }}
+                style={{
+                  padding: "10px 16px",
+                  color: "#FFFFFF",
+                  fontSize: "14px",
+                  cursor: "pointer",
+                  transition: "background 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLDivElement).style.background = "rgba(0,255,198,0.1)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLDivElement).style.background = "transparent";
+                }}
+              >
+                Show album
+              </div>
+            </div>
+          )}
+        </div>
+      </td>
     </tr>
   );
 }
@@ -262,6 +403,7 @@ export default function PlaylistDetailPage() {
   const [isUpdatingPositions, setIsUpdatingPositions] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLDivElement>(null);
+  const [showRemovedToast, setShowRemovedToast] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -429,6 +571,23 @@ export default function PlaylistDetailPage() {
 
     setAddingTrackId(trackId);
     const nextPosition = tracks.length + 1;
+
+    // Prevent duplicates: check if this track already exists in this playlist
+    const { data: existing, error: existingError } = await supabase
+      .from("playlist_tracks")
+      .select("track_id")
+      .eq("playlist_id", params.id)
+      .eq("track_id", trackId);
+
+    if (existingError) {
+      console.error("Error checking existing track:", existingError.message);
+    }
+
+    if (existing && existing.length > 0) {
+      alert("This track is already in the playlist.");
+      setAddingTrackId(null);
+      return;
+    }
 
     const { error } = await supabase.from("playlist_tracks").insert([
       {
@@ -606,6 +765,11 @@ export default function PlaylistDetailPage() {
     } finally {
       setIsUpdatingPositions(false);
     }
+  };
+
+  const handleTrackRemovedToast = () => {
+    setShowRemovedToast(true);
+    window.setTimeout(() => setShowRemovedToast(false), 2000);
   };
 
   if (loading)
@@ -879,13 +1043,14 @@ export default function PlaylistDetailPage() {
                 <th style={{ paddingBottom: "10px" }}>Title</th>
                 <th style={{ paddingBottom: "10px" }}>Artist</th>
                 <th style={{ paddingBottom: "10px" }}>Duration</th>
+                <th style={{ paddingBottom: "10px", width: "40px" }}></th>
               </tr>
             </thead>
             <tbody>
               {tracks.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     style={{
                       padding: "40px 0",
                       textAlign: "center",
@@ -905,6 +1070,8 @@ export default function PlaylistDetailPage() {
                       key={playlistTrack.id}
                       playlistTrack={playlistTrack}
                       supabase={supabase}
+                      fetchPlaylistAndTracks={fetchPlaylistAndTracks}
+                      onTrackRemoved={handleTrackRemovedToast}
                     />
                   ))}
                 </SortableContext>
@@ -928,6 +1095,24 @@ export default function PlaylistDetailPage() {
             }}
           >
             Speichere Reihenfolge...
+          </div>
+        )}
+        {showRemovedToast && (
+          <div
+            style={{
+              position: "fixed",
+              bottom: "40px",
+              right: "20px",
+              backgroundColor: "#121214",
+              color: "#00FFC6",
+              padding: "10px 16px",
+              borderRadius: "8px",
+              fontSize: "14px",
+              boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+              zIndex: 100,
+            }}
+          >
+            Track removed from playlist
           </div>
         )}
       </div>
