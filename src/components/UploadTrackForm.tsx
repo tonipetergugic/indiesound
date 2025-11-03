@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Image as ImageIcon, Music, CheckCircle } from "lucide-react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
@@ -32,9 +32,39 @@ export default function UploadTrackForm() {
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [canUpload, setCanUpload] = useState(false);
 
   const coverInputRef = useRef<HTMLInputElement | null>(null);
   const audioInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Check user role on mount to gate the UI
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          if (isMounted) setCanUpload(false);
+          return;
+        }
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+        if (profileError) {
+          console.error("Error checking user role:", profileError.message);
+          if (isMounted) setCanUpload(false);
+          return;
+        }
+        if (isMounted) setCanUpload(profile?.role === "artist");
+      } catch (e) {
+        console.error(e);
+        if (isMounted) setCanUpload(false);
+      }
+    })();
+    return () => { isMounted = false; };
+  }, [supabase]);
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,19 +80,53 @@ export default function UploadTrackForm() {
     try {
       const duration = await getAudioDuration(audioFile);
 
-      // Upload Cover & Audio
-      const [{ error: coverError }, { error: audioError }] = await Promise.all([
-        supabase.storage.from("covers").upload(coverFile.name, coverFile, { upsert: true }),
-        supabase.storage.from("tracks").upload(audioFile.name, audioFile, { upsert: true }),
-      ]);
-
-      if (coverError || audioError) throw coverError || audioError;
-
-      // Get User
+      // Get User first for path structure
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("No authenticated user found.");
+      if (!user) {
+        alert("You must be logged in to upload tracks.");
+        setLoading(false);
+        return;
+      }
 
-      // Insert Record
+      // Verify artist role before proceeding
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      if (profileError) {
+        console.error("Error checking user role:", profileError.message);
+        alert("Could not verify user role. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      if (profile?.role !== "artist") {
+        alert("Only artists can upload tracks.");
+        setLoading(false);
+        return;
+      }
+
+      // Build user-scoped paths with timestamp
+      const coverPath = `${user.id}/${Date.now()}_${coverFile.name}`;
+      const audioPath = `${user.id}/${Date.now()}_${audioFile.name}`;
+
+      // Upload Cover
+      const { data: coverData, error: coverError } = await supabase.storage
+        .from("covers")
+        .upload(coverPath, coverFile, { upsert: true });
+      if (coverError) throw coverError;
+      if (!coverData) throw new Error("Cover upload failed");
+
+      // Upload Audio
+      const { data: audioData, error: audioError } = await supabase.storage
+        .from("tracks")
+        .upload(audioPath, audioFile, { upsert: true });
+      if (audioError) throw audioError;
+      if (!audioData) throw new Error("Audio upload failed");
+
+      // Insert with storage keys (data.path)
       const { error: insertError } = await supabase.from("tracks").insert([
         {
           title,
@@ -70,8 +134,8 @@ export default function UploadTrackForm() {
           genre,
           bpm: bpm ? parseInt(bpm) : null,
           key_signature: keySignature,
-          cover_url: coverFile.name,
-          audio_url: audioFile.name,
+          cover_url: coverData.path,
+          audio_url: audioData.path,
           duration,
           artist_id: user.id,
         },
@@ -100,6 +164,11 @@ export default function UploadTrackForm() {
         IndieSound for Artists – Upload Track
       </h2>
 
+      {!canUpload ? (
+        <div style={{ color: "#B3B3B3", textAlign: "center", padding: "16px" }}>
+          Only artists can upload tracks.
+        </div>
+      ) : (
       <form onSubmit={handleUpload} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
         {/* Basic Inputs */}
         <input placeholder="Track title" value={title} onChange={(e) => setTitle(e.target.value)} required style={inputStyle} />
@@ -147,6 +216,7 @@ export default function UploadTrackForm() {
           {loading ? "Uploading..." : "Upload Track"}
         </button>
       </form>
+      )}
 
       {message && (
         <p style={{ color: message.startsWith("✅") ? "#00FFC6" : "#FF5555", marginTop: "10px" }}>

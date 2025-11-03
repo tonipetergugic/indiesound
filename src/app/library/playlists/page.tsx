@@ -29,7 +29,20 @@ export default function LibraryPlaylistsPage() {
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
-      if (!error && data) setPlaylists(data);
+        if (!error && data) {
+          const updated = data.map((playlist: Playlist) => {
+            if (playlist.cover_url && !playlist.cover_url.startsWith("http")) {
+              const publicUrl = supabase.storage
+                .from("playlist-covers")
+                .getPublicUrl(playlist.cover_url).data.publicUrl;
+              return { ...playlist, cover_url: publicUrl };
+            }
+            return playlist;
+          });
+        
+          setPlaylists(updated);
+        }
+        
       setLoading(false);
     };
 

@@ -1,15 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Play } from "lucide-react";
 import { usePlayer } from "@/context/PlayerContext";
 import type { Track } from "@/context/PlayerContext";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 export type Playlist = {
   id: string;
   name: string;
-  coverUrl: string;
+  cover_url?: string | null;
+  // legacy support
+  coverUrl?: string | null;
   tracks: Track[];
 };
 
@@ -21,6 +24,16 @@ export default function PlaylistCard({ playlist }: PlaylistCardProps) {
   const [isHovering, setIsHovering] = useState(false);
   const router = useRouter();
   const { setQueue } = usePlayer();
+  const supabase = createClientComponentClient();
+
+  const computedCoverUrl = useMemo(() => {
+    if (!playlist.cover_url && !playlist.coverUrl) return null;
+    const key = (playlist.cover_url || playlist.coverUrl) as string;
+    const { data } = supabase.storage
+      .from("playlist-covers")
+      .getPublicUrl(key);
+    return data?.publicUrl || null;
+  }, [playlist.cover_url, playlist.coverUrl, supabase]);
 
   const handleCardClick = () => {
     router.push(`/playlist/${playlist.id}`);
@@ -70,9 +83,9 @@ export default function PlaylistCard({ playlist }: PlaylistCardProps) {
           setIsHovering(false);
         }}
       >
-        {playlist.coverUrl ? (
+        {computedCoverUrl ? (
           <img
-            src={playlist.coverUrl}
+            src={computedCoverUrl}
             alt={playlist.name}
             style={{
               width: "100%",
@@ -87,7 +100,7 @@ export default function PlaylistCard({ playlist }: PlaylistCardProps) {
             style={{
               width: "100%",
               aspectRatio: "1 / 1",
-              backgroundColor: "#1a1a1d",
+              background: "linear-gradient(135deg, #00FFC6, #00E0B0)",
               borderRadius: "12px",
             }}
           />

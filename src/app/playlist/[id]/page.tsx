@@ -349,7 +349,23 @@ export default function PlaylistDetailPage() {
     if (playlistError) {
       console.error("Error loading playlist:", playlistError.message);
     } else {
-      setPlaylist(playlistData);
+      if (playlistData?.cover_url && !playlistData.cover_url.startsWith("http")) {
+        const { data: publicData } = supabase
+          .storage
+          .from("playlist-covers")
+          .getPublicUrl(playlistData.cover_url);
+
+        if (publicData?.publicUrl) {
+          setPlaylist({
+            ...playlistData,
+            cover_url: publicData.publicUrl,
+          });
+        } else {
+          setPlaylist(playlistData);
+        }
+      } else {
+        setPlaylist(playlistData);
+      }
     }
 
     // Fetch tracks
@@ -444,22 +460,37 @@ export default function PlaylistDetailPage() {
     const confirmed = window.confirm("Are you sure you want to delete this playlist?");
     if (!confirmed) return;
 
-    try {
-      const { error } = await supabase
-        .from("playlists")
-        .delete()
-        .eq("id", params.id);
+    // Get the cover file path before deleting the playlist
+    const { data: playlistData } = await supabase
+      .from("playlists")
+      .select("cover_url")
+      .eq("id", params.id)
+      .single();
 
-      if (error) {
-        console.error("Error deleting playlist:", error.message);
-        alert("Fehler beim Löschen der Playlist: " + error.message);
-      } else {
-        router.push("/library");
-      }
-    } catch (error: any) {
-      console.error("Error deleting playlist:", error);
-      alert("Fehler beim Löschen der Playlist: " + error.message);
+    // Delete playlist from database
+    const { error } = await supabase
+      .from("playlists")
+      .delete()
+      .eq("id", params.id);
+
+    if (error) {
+      console.error("Error deleting playlist:", error.message);
+      alert("Failed to delete playlist: " + error.message);
+      return;
     }
+
+    // Delete cover file from Supabase Storage if exists
+    if (playlistData?.cover_url) {
+      const { error: storageError } = await supabase.storage
+        .from("playlist-covers")
+        .remove([playlistData.cover_url]);
+
+      if (storageError) {
+        console.warn("Failed to delete cover file:", storageError.message);
+      }
+    }
+
+    router.push("/library");
   };
 
   const handleEditPlaylist = () => {
@@ -591,6 +622,9 @@ export default function PlaylistDetailPage() {
       </div>
     );
 
+  // Use the already processed cover_url (contains public URL)
+  const playlistCoverUrl = playlist?.cover_url || null;
+
   return (
     <div
       style={{
@@ -614,10 +648,10 @@ export default function PlaylistDetailPage() {
         }}
       >
         {/* Blurred background layer (Spotify-style) */}
-        {playlist.cover_url && (
+        {playlistCoverUrl && (
           <div
             style={{
-              backgroundImage: `url(${playlist.cover_url})`,
+              backgroundImage: `url(${playlistCoverUrl})`,
               filter: "blur(60px) brightness(0.6)",
               position: "absolute",
               top: 0,
@@ -653,8 +687,8 @@ export default function PlaylistDetailPage() {
               height: "200px",
               backgroundColor: "#18181A",
               borderRadius: "8px",
-              backgroundImage: playlist.cover_url
-                ? `url(${playlist.cover_url})`
+              backgroundImage: playlistCoverUrl
+                ? `url(${playlistCoverUrl})`
                 : "linear-gradient(135deg, #00FFC6 0%, #00E0B0 100%)",
               backgroundSize: "cover",
               backgroundPosition: "center",

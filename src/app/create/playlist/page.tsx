@@ -46,13 +46,12 @@ export default function CreatePlaylistPage() {
         return;
       }
 
-      // Generate unique filename
+      // Generate user-based path: userId/timestamp_filename
       const fileExt = file.name.split(".").pop();
-      const fileName = `${user.id}-${Date.now()}.${fileExt || "jpg"}`;
-      const filePath = fileName;
+      const filePath = `${user.id}/${Date.now()}_${file.name.replace(/\s+/g, "_")}`;
 
       // Upload to Supabase Storage
-      const { error: uploadError } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from("playlist-covers")
         .upload(filePath, file, {
           cacheControl: "3600",
@@ -65,17 +64,9 @@ export default function CreatePlaylistPage() {
         return;
       }
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from("playlist-covers")
-        .getPublicUrl(filePath);
-
-      if (urlData?.publicUrl) {
-        setCoverUrl(urlData.publicUrl);
-        setUploadError("");
-      } else {
-        setUploadError("Failed to get image URL.");
-      }
+      // Store only the storage key
+      setCoverUrl(uploadData?.path || filePath);
+      setUploadError("");
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : "An unexpected error occurred.");
     } finally {
@@ -171,7 +162,7 @@ export default function CreatePlaylistPage() {
               borderRadius: "12px",
               backgroundColor: "#18181A",
               backgroundImage: coverUrl
-                ? `url(${coverUrl})`
+                ? `url(${supabase.storage.from("playlist-covers").getPublicUrl(coverUrl).data.publicUrl})`
                 : "linear-gradient(180deg, #222 0%, #111 100%)",
               backgroundSize: "cover",
               backgroundPosition: "center",
@@ -198,7 +189,11 @@ export default function CreatePlaylistPage() {
             {uploading ? (
               <div style={{ color: "#00FFC6", fontSize: "14px" }}>Uploading...</div>
             ) : (
-              !coverUrl && <Upload size={32} color="#B3B3B3" />
+              !coverUrl ? (
+                <Upload size={32} color="#B3B3B3" />
+              ) : (
+                <div style={{ color: "#00FFC6", fontSize: "12px" }}>Cover uploaded ✓</div>
+              )
             )}
           </div>
           {uploadError && (
