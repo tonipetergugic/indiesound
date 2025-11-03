@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { Play, Pause, MoreHorizontal, Plus } from "lucide-react";
 import { formatDuration } from "@/utils/formatDuration";
@@ -253,21 +254,20 @@ function SortableRow({
       <td style={{ padding: "5px 0", color: isCurrentTrack ? "#FFFFFF" : "#FFFFFF" }}>{track.title}</td>
       <td style={{ padding: "5px 0" }}>
         {track.artist_id ? (
-          <span
-            onClick={(e) => {
-              e.stopPropagation();
-              router.push(`/artist/${track.artist_id}`);
-            }}
+          <Link
+            href={`/artist/${track.artist_id}`}
+            onClick={(e) => e.stopPropagation()}
             style={{
-              color: "#B3B3B3",
+              color: "#00FFC6",
               cursor: "pointer",
-              transition: "color 0.2s ease",
+              transition: "color 0.15s ease",
+              textDecoration: "none",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "#00FFC6")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "#B3B3B3")}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#00E0B0")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "#00FFC6")}
           >
             {track.artist}
-          </span>
+          </Link>
         ) : (
           <span style={{ color: "#B3B3B3" }}>{track.artist}</span>
         )}

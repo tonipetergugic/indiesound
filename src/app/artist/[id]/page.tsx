@@ -9,11 +9,13 @@ import { usePlayer } from "@/context/PlayerContext";
 
 type ArtistProfile = {
   id: string;
-  display_name: string;
   bio: string | null;
-  avatar_url: string | null;
   user_id: string;
   social_links?: Record<string, string> | null;
+  profiles?: {
+    avatar_url: string | null;
+    display_name: string | null;
+  } | null;
 };
 
 type Track = {
@@ -198,10 +200,19 @@ export default function ArtistPage() {
     const fetchArtist = async () => {
       if (!id) return;
 
-      // 🎵 Lade Artist aus "artists"
+      // 🎵 Lade Artist aus "artists" mit Join zu "profiles"
       const { data: artistData, error: artistError } = await supabase
         .from("artists")
-        .select("id, display_name, bio, avatar_url, user_id, social_links")
+        .select(`
+          id,
+          bio,
+          social_links,
+          user_id,
+          profiles!inner(
+            avatar_url,
+            display_name
+          )
+        `)
         .eq("user_id", id)
         .single();
 
@@ -293,13 +304,14 @@ export default function ArtistPage() {
             }}
           >
             {(() => {
-              const avatarPublicUrl = artist.avatar_url
-                ? supabase.storage.from("avatars").getPublicUrl(artist.avatar_url).data?.publicUrl
-                : "/default-avatar.png";
+              const avatarPath = artist?.profiles?.avatar_url;
+              const avatarUrl = avatarPath
+                ? supabase.storage.from("avatars").getPublicUrl(avatarPath).data.publicUrl
+                : null;
               return (
                 <img
-                  src={avatarPublicUrl || "/default-avatar.png"}
-                  alt={artist.display_name}
+                  src={avatarUrl || "/default-avatar.png"}
+                  alt={artist.profiles?.display_name || "Artist"}
                   style={{
                     width: "100%",
                     height: "100%",
@@ -330,7 +342,7 @@ export default function ArtistPage() {
                 letterSpacing: "-0.02em",
               }}
             >
-              {artist.display_name}
+              {artist.profiles?.display_name || "Artist"}
             </h1>
             <p
               style={{
@@ -476,7 +488,7 @@ export default function ArtistPage() {
                     key={track.id}
                     track={track}
                     index={index}
-                    artistName={artist.display_name}
+                    artistName={artist.profiles?.display_name || "Artist"}
                     supabase={supabase}
                   />
                 ))}

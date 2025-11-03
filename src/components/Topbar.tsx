@@ -19,34 +19,48 @@ export default function Topbar() {
   };
 
   const [role, setRole] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClientComponentClient();
 
-    const fetchRole = async () => {
+    const fetchProfile = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) {
         setRole(null);
+        setAvatarUrl(null);
         return;
       }
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, avatar_url")
         .eq("id", user.id)
         .single();
 
       setRole(profile?.role || null);
+
+      // Handle avatar URL - check if it's a full URL or storage path
+      if (profile?.avatar_url) {
+        const url = profile.avatar_url.startsWith("http")
+          ? profile.avatar_url
+          : supabase.storage
+              .from("avatars")
+              .getPublicUrl(profile.avatar_url).data.publicUrl;
+        setAvatarUrl(url);
+      } else {
+        setAvatarUrl(null);
+      }
     };
 
     // Initial fetch
-    fetchRole();
+    fetchProfile();
 
     // Aktualisierung bei Login/Logout
     const { data: listener } = supabase.auth.onAuthStateChange(() => {
-      fetchRole();
+      fetchProfile();
     });
 
     return () => {
@@ -97,11 +111,28 @@ export default function Topbar() {
               width: "35px",
               height: "35px",
               borderRadius: "50%",
-              backgroundColor: "var(--accent)",
               border: "none",
               cursor: "pointer",
+              overflow: "hidden",
+              backgroundColor: "#00FFC6",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#0E0E10",
+              fontWeight: "bold",
+              fontSize: "14px",
             }}
-          />
+          >
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt="Avatar"
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            ) : (
+              user?.email?.[0]?.toUpperCase() || "?"
+            )}
+          </button>
         </DropdownMenu.Trigger>
 
         <DropdownMenu.Portal>
