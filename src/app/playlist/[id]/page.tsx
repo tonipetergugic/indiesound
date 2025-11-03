@@ -39,6 +39,7 @@ type Track = {
   id: string;
   title: string;
   artist: string;
+  artist_id?: string | null;
   duration?: number;
   audio_url: string;
   cover_url?: string | null;
@@ -68,6 +69,7 @@ function SortableRow({
   onTrackRemoved: () => void;
 }) {
   const track = playlistTrack.tracks;
+  const router = useRouter();
   const { playTrack, currentTrack, isPlaying, togglePlay } = usePlayer();
   const [isHoveringCover, setIsHoveringCover] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -124,22 +126,7 @@ function SortableRow({
     }
   };
 
-  const handleRowClick = (e: React.MouseEvent) => {
-    // Only play if not dragging and audioUrl exists
-    // Skip if clicking on the icon overlay
-    if (!isDragging && audioUrl && !(e.target as HTMLElement).closest('[data-play-button]')) {
-      if (isCurrentTrack) {
-        togglePlay();
-      } else {
-        playTrack({
-          title: track.title,
-          artist: track.artist,
-          coverUrl: coverUrl || null,
-          audioUrl: audioUrl || null,
-        });
-      }
-    }
-  };
+  // Row click disabled for autoplay; play/pause only via cover play button
 
   // Close row menu when clicking outside
   useEffect(() => {
@@ -173,7 +160,6 @@ function SortableRow({
       }}
       {...attributes}
       {...listeners}
-      onClick={handleRowClick}
       onMouseEnter={(e) => {
         if (!isDragging) {
           if (isCurrentTrack) {
@@ -265,8 +251,26 @@ function SortableRow({
         </div>
       </td>
       <td style={{ padding: "5px 0", color: isCurrentTrack ? "#FFFFFF" : "#FFFFFF" }}>{track.title}</td>
-      <td style={{ padding: "5px 0", color: isCurrentTrack ? "#CCCCCC" : "#B3B3B3" }}>
-        {track.artist}
+      <td style={{ padding: "5px 0" }}>
+        {track.artist_id ? (
+          <span
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/artist/${track.artist_id}`);
+            }}
+            style={{
+              color: "#B3B3B3",
+              cursor: "pointer",
+              transition: "color 0.2s ease",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#00FFC6")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "#B3B3B3")}
+          >
+            {track.artist}
+          </span>
+        ) : (
+          <span style={{ color: "#B3B3B3" }}>{track.artist}</span>
+        )}
       </td>
       <td style={{ padding: "5px 0", color: isCurrentTrack ? "#FFFFFF" : "#B3B3B3" }}>
         {formatDuration(track.duration || 0)}
@@ -520,6 +524,7 @@ export default function PlaylistDetailPage() {
           id,
           title,
           artist,
+          artist_id,
           duration,
           audio_url,
           cover_url
