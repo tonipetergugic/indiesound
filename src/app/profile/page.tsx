@@ -1,25 +1,46 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import ArtistProfileForm from "@/components/ArtistProfileForm";
+import ListenerProfileForm from "@/components/ListenerProfileForm";
+
 export default function ProfilePage() {
+  const supabase = createClientComponentClient();
+  const [role, setRole] = useState<"artist" | "listener" | null>(null);
+
+  useEffect(() => {
+    const fetchRole = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+
+      setRole(data?.role || "listener"); // default fallback
+    };
+    fetchRole();
+  }, [supabase]);
+
+  if (!role)
+    return <p style={{ color: "#B3B3B3" }}>Loading profile...</p>;
+
   return (
     <div
       style={{
         maxWidth: "800px",
-        width: "100%",
         margin: "0 auto",
         paddingTop: "40px",
-        color: "var(--text-primary)",
+        color: "#fff",
       }}
     >
-      <h1
-        style={{
-          fontSize: "2rem",
-          fontWeight: "bold",
-          marginBottom: "30px",
-          color: "var(--text-primary)",
-        }}
-      >
-        Profil
+      <h1 style={{ fontSize: "2rem", fontWeight: "bold", marginBottom: "30px" }}>
+        Profile Settings
       </h1>
 
       <div
@@ -30,21 +51,7 @@ export default function ProfilePage() {
           border: "1px solid #1e1e1e",
         }}
       >
-        <h2
-          style={{
-            fontSize: "1.5rem",
-            fontWeight: 600,
-            marginBottom: "20px",
-          }}
-        >
-          Profilinformationen
-        </h2>
-
-        <p style={{ color: "var(--text-secondary)", lineHeight: "1.6" }}>
-          Hier kannst du deine persönlichen Daten, dein Profilbild und deine
-          Bio anpassen. Später fügen wir hier auch Social Links und weitere
-          Optionen hinzu.
-        </p>
+        {role === "artist" ? <ArtistProfileForm /> : <ListenerProfileForm />}
       </div>
     </div>
   );

@@ -42,7 +42,6 @@ export default function Topbar() {
 
       setRole(profile?.role || null);
 
-      // Handle avatar URL - check if it's a full URL or storage path
       if (profile?.avatar_url) {
         const url = profile.avatar_url.startsWith("http")
           ? profile.avatar_url
@@ -55,10 +54,8 @@ export default function Topbar() {
       }
     };
 
-    // Initial fetch
     fetchProfile();
 
-    // Aktualisierung bei Login/Logout
     const { data: listener } = supabase.auth.onAuthStateChange(() => {
       fetchProfile();
     });
@@ -82,8 +79,9 @@ export default function Topbar() {
       }}
     >
       <span style={{ color: "#B3B3B3", marginRight: "12px", fontSize: "14px" }}>
-        {user?.email ? `Eingeloggt als: ${user.email}` : "Nicht eingeloggt"}
+        {user?.email ? `Logged in as: ${user.email}` : "Not logged in"}
       </span>
+
       {role === "artist" && (
         <Link
           href="/artist/home"
@@ -104,6 +102,7 @@ export default function Topbar() {
           Artist Dashboard
         </Link>
       )}
+
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>
           <button
@@ -159,7 +158,7 @@ export default function Topbar() {
                 e.currentTarget.style.color = "#FFFFFF";
               }}
             >
-              <User size={16} style={{ marginRight: 8 }} /> Profil
+              <User size={16} style={{ marginRight: 8 }} /> Profile
             </DropdownMenu.Item>
             <DropdownMenu.Item
               onClick={() => router.push("/profile/settings")}
@@ -173,7 +172,7 @@ export default function Topbar() {
                 e.currentTarget.style.color = "#FFFFFF";
               }}
             >
-              <Settings size={16} style={{ marginRight: 8 }} /> Einstellungen
+              <Settings size={16} style={{ marginRight: 8 }} /> Settings
             </DropdownMenu.Item>
             <DropdownMenu.Item
               onClick={() => router.push("/profile/security")}
@@ -187,13 +186,15 @@ export default function Topbar() {
                 e.currentTarget.style.color = "#FFFFFF";
               }}
             >
-              <Shield size={16} style={{ marginRight: 8 }} /> Sicherheit
+              <Shield size={16} style={{ marginRight: 8 }} /> Security
             </DropdownMenu.Item>
+
             <DropdownMenu.Separator
               style={{ height: 1, backgroundColor: "#333", margin: "8px 0" }}
             />
-            <DropdownMenu.Item 
-              onClick={handleLogout} 
+
+            <DropdownMenu.Item
+              onClick={handleLogout}
               style={menuItemStyle}
               onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = "#00FFC610";
