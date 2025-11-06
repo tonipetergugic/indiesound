@@ -66,11 +66,15 @@ function SortableRow({
   supabase,
   fetchPlaylistAndTracks,
   onTrackRemoved,
+  rowIndex,
+  allPlaylistTracks,
 }: {
   playlistTrack: PlaylistTrack;
   supabase: ReturnType<typeof createClientComponentClient>;
   fetchPlaylistAndTracks: () => Promise<void>;
   onTrackRemoved: () => void;
+  rowIndex: number;
+  allPlaylistTracks: PlaylistTrack[];
 }) {
   const track = playlistTrack.tracks;
 
@@ -87,7 +91,7 @@ function SortableRow({
     return `${diffDays} days ago`;
   };
   const router = useRouter();
-  const { playTrack, currentTrack, isPlaying, togglePlay } = usePlayer();
+  const { setQueueAndPlay, currentTrack, isPlaying, togglePlay } = usePlayer();
   const [isHoveringCover, setIsHoveringCover] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -125,22 +129,29 @@ function SortableRow({
   };
 
   const handleIconClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent row click
-    
+    e.stopPropagation();
     if (!audioUrl || isDragging) return;
 
-    if (isCurrentTrack) {
-      // Current track: toggle play/pause
-      togglePlay();
-    } else {
-      // Different track: play this track
-      playTrack({
-        title: track.title,
-        artist: track.artist,
+    const mapped = allPlaylistTracks.map(pt => {
+      const t = pt.tracks;
+      const coverUrl = t.cover_url
+        ? supabase.storage.from("covers").getPublicUrl(t.cover_url).data?.publicUrl
+        : null;
+      const audioUrl = t.audio_url
+        ? supabase.storage.from("tracks").getPublicUrl(t.audio_url).data?.publicUrl
+        : null;
+      return {
+        id: t.id,
+        title: t.title,
+        artist: t.artist,
         coverUrl: coverUrl || null,
         audioUrl: audioUrl || null,
-      });
-    }
+      };
+    });
+
+    const isCurrent = currentTrack?.title === track.title && currentTrack?.artist === track.artist;
+    if (isCurrent) togglePlay();
+    else setQueueAndPlay(mapped, rowIndex);
   };
 
   // Row click disabled for autoplay; play/pause only via cover play button
@@ -415,7 +426,7 @@ export default function PlaylistDetailPage() {
   const supabase = useMemo(() => createClientComponentClient(), []);
   const params = useParams();
   const router = useRouter();
-  const { currentTrack, isPlaying, playTrack, togglePlay } = usePlayer();
+  const { currentTrack, isPlaying, setQueueAndPlay, togglePlay } = usePlayer();
   const [playlist, setPlaylist] = useState<Playlist | null>(null);
   const [tracks, setTracks] = useState<PlaylistTrack[]>([]);
   const [loading, setLoading] = useState(true);
@@ -773,31 +784,28 @@ export default function PlaylistDetailPage() {
   const handlePlayButtonClick = () => {
     if (tracks.length === 0) return;
 
-    if (isCurrentTrackFromPlaylist && isPlaying) {
-      // Current track from playlist is playing → pause
-      togglePlay();
-    } else if (isCurrentTrackFromPlaylist && !isPlaying) {
-      // Current track from playlist but paused → resume
-      togglePlay();
-    } else {
-      // No track playing or different track → start from first track in playlist
-      const firstTrack = tracks[0].tracks;
-      const coverUrl = firstTrack.cover_url
-        ? supabase.storage.from("covers").getPublicUrl(firstTrack.cover_url).data?.publicUrl
+    const mapped = tracks.map(pt => {
+      const t = pt.tracks;
+      const coverUrl = t.cover_url
+        ? supabase.storage.from("covers").getPublicUrl(t.cover_url).data?.publicUrl
         : null;
-      const audioUrl = firstTrack.audio_url
-        ? supabase.storage.from("tracks").getPublicUrl(firstTrack.audio_url).data?.publicUrl
+      const audioUrl = t.audio_url
+        ? supabase.storage.from("tracks").getPublicUrl(t.audio_url).data?.publicUrl
         : null;
+      return {
+        id: t.id,
+        title: t.title,
+        artist: t.artist,
+        coverUrl: coverUrl || null,
+        audioUrl: audioUrl || null,
+      };
+    });
 
-      if (audioUrl) {
-        playTrack({
-          title: firstTrack.title,
-          artist: firstTrack.artist,
-          coverUrl: coverUrl || null,
-          audioUrl: audioUrl || null,
-        });
-      }
-    }
+    const isFromThisPlaylist =
+      currentTrack && mapped.some(m => m.title === currentTrack.title && m.artist === currentTrack.artist);
+
+    if (isFromThisPlaylist) togglePlay();
+    else setQueueAndPlay(mapped, 0);
   };
 
   // Close menu when clicking outside
@@ -1256,13 +1264,15 @@ export default function PlaylistDetailPage() {
                   items={tracks.map((t) => t.id)}
                   strategy={verticalListSortingStrategy}
                 >
-                  {tracks.map((playlistTrack) => (
+                  {tracks.map((playlistTrack, i) => (
                     <SortableRow
                       key={playlistTrack.id}
                       playlistTrack={playlistTrack}
                       supabase={supabase}
                       fetchPlaylistAndTracks={fetchPlaylistAndTracks}
                       onTrackRemoved={handleTrackRemovedToast}
+                      rowIndex={i}
+                      allPlaylistTracks={tracks}
                     />
                   ))}
                 </SortableContext>
