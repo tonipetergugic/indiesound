@@ -13,6 +13,7 @@ export default function ArtistProfileForm() {
   const [instagram, setInstagram] = useState("");
   const [facebook, setFacebook] = useState("");
   const [x, setX] = useState("");
+  const [tiktok, setTiktok] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -56,6 +57,7 @@ export default function ArtistProfileForm() {
           setInstagram(links.instagram || "");
           setFacebook(links.facebook || "");
           setX(links.x || links.twitter || "");
+          setTiktok(links.tiktok || "");
         }
       }
 
@@ -133,6 +135,7 @@ export default function ArtistProfileForm() {
     if (instagram) socialLinks.instagram = instagram.trim();
     if (facebook) socialLinks.facebook = facebook.trim();
     if (x) socialLinks.twitter = x.trim();
+    if (tiktok) socialLinks.tiktok = tiktok.trim();
 
     const updateData = {
       bio: bio || null,
@@ -244,6 +247,7 @@ export default function ArtistProfileForm() {
         <input value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="Instagram URL" style={inputStyle} />
         <input value={facebook} onChange={(e) => setFacebook(e.target.value)} placeholder="Facebook URL" style={inputStyle} />
         <input value={x} onChange={(e) => setX(e.target.value)} placeholder="X (Twitter) URL" style={inputStyle} />
+        <input value={tiktok} onChange={(e) => setTiktok(e.target.value)} placeholder="TikTok URL" style={inputStyle} />
       </div>
 
       {/* Save Button */}

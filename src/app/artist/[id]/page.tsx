@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
-import { Play, Pause, Globe, Instagram, Facebook, Twitter } from "lucide-react";
+import { Play, Pause, Globe, Instagram, Facebook, Twitter, Music2 } from "lucide-react";
 import { formatDuration } from "@/utils/formatDuration";
 import { usePlayer } from "@/context/PlayerContext";
 
@@ -54,23 +54,6 @@ function TrackRow({
     return "transparent";
   };
 
-  const handleRowClick = (e: React.MouseEvent) => {
-    if (!audioUrl) return;
-    // Skip if clicking on the icon overlay
-    if ((e.target as HTMLElement).closest("[data-play-button]")) return;
-
-    if (isCurrentTrack) {
-      togglePlay();
-    } else {
-      playTrack({
-        title: track.title,
-        artist: artistName,
-        coverUrl: coverUrl || null,
-        audioUrl: audioUrl || null,
-      });
-    }
-  };
-
   const handleIconClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!audioUrl) return;
@@ -91,12 +74,11 @@ function TrackRow({
     <tr
       style={{
         borderTop: "1px solid #222",
-        cursor: audioUrl ? "pointer" : "default",
+        cursor: "default",
         background: getRowBackground(),
         boxShadow: isCurrentTrack ? "0 0 8px rgba(0,255,198,0.3)" : "none",
         transition: "background 0.2s ease, box-shadow 0.2s ease",
       }}
-      onClick={handleRowClick}
       onMouseEnter={(e) => {
         if (isCurrentTrack) {
           e.currentTarget.style.background = "rgba(0,255,198,0.15)";
@@ -400,6 +382,11 @@ export default function ArtistPage() {
                       icon: <Twitter size={24} />,
                       url: findLink(['x', 'twitter']),
                       key: 'x',
+                    },
+                    {
+                      icon: <Music2 size={24} />,
+                      url: findLink(['tiktok']),
+                      key: 'tiktok',
                     },
                   ];
 
