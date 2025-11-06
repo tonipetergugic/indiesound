@@ -24,6 +24,7 @@ type Track = {
   cover_url: string | null;
   audio_url: string | null;
   duration?: number;
+  streams?: number;
 };
 
 function TrackRow({
@@ -31,13 +32,15 @@ function TrackRow({
   index,
   artistName,
   supabase,
+  allTracks,
 }: {
   track: Track;
   index: number;
   artistName: string;
   supabase: ReturnType<typeof createClientComponentClient>;
+  allTracks: Track[];
 }) {
-  const { currentTrack, isPlaying, playTrack, togglePlay } = usePlayer();
+  const { currentTrack, isPlaying, togglePlay, setQueueAndPlay } = usePlayer();
   const [isHoveringCover, setIsHoveringCover] = useState(false);
 
   const coverUrl = track.cover_url
@@ -61,12 +64,13 @@ function TrackRow({
     if (isCurrentTrack) {
       togglePlay();
     } else {
-      playTrack({
-        title: track.title,
+      const mappedTracks = allTracks.map(t => ({
+        title: t.title,
         artist: artistName,
-        coverUrl: coverUrl || null,
-        audioUrl: audioUrl || null,
-      });
+        coverUrl: t.cover_url ? supabase.storage.from("covers").getPublicUrl(t.cover_url).data.publicUrl : null,
+        audioUrl: t.audio_url ? supabase.storage.from("tracks").getPublicUrl(t.audio_url).data.publicUrl : null,
+      }));
+      setQueueAndPlay(mappedTracks, index);
     }
   };
 
@@ -165,6 +169,9 @@ function TrackRow({
       </td>
       <td style={{ padding: "5px 0", color: isCurrentTrack ? "#FFFFFF" : "#FFFFFF" }}>{track.title}</td>
       <td style={{ padding: "5px 0", color: isCurrentTrack ? "#FFFFFF" : "#B3B3B3" }}>
+        {new Intl.NumberFormat("en-US").format(track.streams ?? 0)}
+      </td>
+      <td style={{ padding: "5px 0", color: isCurrentTrack ? "#FFFFFF" : "#B3B3B3" }}>
         {formatDuration(track.duration || 0)}
       </td>
     </tr>
@@ -219,7 +226,7 @@ export default function ArtistPage() {
       // 🎧 Lade Tracks über user_id des Artists
       const { data: trackData, error: trackError } = await supabase
         .from("tracks")
-        .select("id, title, cover_url, audio_url, duration")
+        .select("id, title, cover_url, audio_url, duration, streams")
         .eq("user_id", artistData.user_id);
 
       if (!trackError) setTracks(trackData || []);
@@ -466,6 +473,7 @@ export default function ArtistPage() {
                   <th style={{ width: "30px", paddingBottom: "10px" }}>#</th>
                   <th style={{ paddingBottom: "10px", width: "60px" }}></th>
                   <th style={{ paddingBottom: "10px" }}>Title</th>
+                  <th style={{ paddingBottom: "10px" }}>Streams</th>
                   <th style={{ paddingBottom: "10px" }}>Duration</th>
                 </tr>
               </thead>
@@ -477,6 +485,7 @@ export default function ArtistPage() {
                     index={index}
                     artistName={artist.profiles?.display_name || "Artist"}
                     supabase={supabase}
+                    allTracks={tracks}
                   />
                 ))}
               </tbody>

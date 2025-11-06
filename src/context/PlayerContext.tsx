@@ -19,6 +19,7 @@ type PlayerContextType = {
   pause: () => void;
   setPlayingState: (playing: boolean) => void;
   setQueue: (tracks: Track[], startIndex: number) => void;
+  setQueueAndPlay: (tracks: Track[], startIndex: number) => void;
   nextTrack: () => void;
   prevTrack: () => void;
   handleTrackEnd: () => void;
@@ -71,9 +72,24 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setIsPlaying(true);
   }, []);
 
+  const setQueueAndPlay = useCallback((tracks: Track[], startIndex: number) => {
+    if (tracks.length === 0) {
+      setQueueState([]);
+      setCurrentIndex(-1);
+      setIsPlaying(false);
+      return;
+    }
+
+    const validStartIndex = Math.max(0, Math.min(startIndex, tracks.length - 1));
+    setQueueState(tracks);
+    setCurrentIndex(validStartIndex);
+    setIsPlaying(true);
+  }, []);
+
   const nextTrack = useCallback(() => {
-    if (currentIndex >= 0 && currentIndex < queue.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+    if (currentIndex < queue.length - 1) {
+      const newIndex = currentIndex + 1;
+      setCurrentIndex(newIndex);
       setIsPlaying(true);
     } else {
       // Ende der Queue erreicht
@@ -83,7 +99,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const prevTrack = useCallback(() => {
     if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
+      const newIndex = currentIndex - 1;
+      setCurrentIndex(newIndex);
       setIsPlaying(true);
     } else if (currentIndex === 0) {
       // Am Anfang, starte Track neu
@@ -120,6 +137,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         pause,
         setPlayingState,
         setQueue,
+        setQueueAndPlay,
         nextTrack,
         prevTrack,
         handleTrackEnd,

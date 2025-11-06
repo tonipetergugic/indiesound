@@ -4,6 +4,7 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX } from "lucide-rea
 import { useState, useEffect, useRef, useCallback } from "react";
 import { usePlayer } from "@/context/PlayerContext";
 import { formatDuration } from "@/utils/formatDuration";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 // Styles
 const containerStyle: React.CSSProperties = {
@@ -176,9 +177,11 @@ export default function PlayerBar() {
   const [isHoveringVolume, setIsHoveringVolume] = useState(false);
   const [isDraggingVolume, setIsDraggingVolume] = useState(false);
   
+  const supabase = createClientComponentClient();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const progressBarRef = useRef<HTMLDivElement | null>(null);
   const previousTrackUrlRef = useRef<string | null>(null);
+  const hasCountedRef = useRef<boolean>(false);
 
   // Audio playback control
   useEffect(() => {
@@ -188,6 +191,7 @@ export default function PlayerBar() {
       audioRef.current.src = "";
       setProgress(0);
       previousTrackUrlRef.current = null;
+      hasCountedRef.current = false;
       return;
     }
 
@@ -198,6 +202,7 @@ export default function PlayerBar() {
       audioRef.current.src = newTrackUrl;
       setProgress(0);
       previousTrackUrlRef.current = newTrackUrl;
+      hasCountedRef.current = false;
     }
 
     if (isPlaying) {
@@ -206,6 +211,59 @@ export default function PlayerBar() {
       audioRef.current.pause();
     }
   }, [currentTrack, isPlaying, setPlayingState]);
+
+  // Stream count tracking - increment after 30 seconds of playback
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !currentTrack) return;
+
+    // Separate async helper function for stream counting
+    const incrementStreamCount = async (title: string) => {
+      try {
+        // Fetch current streams count
+        const { data: trackData, error: fetchError } = await supabase
+          .from("tracks")
+          .select("streams")
+          .eq("title", title)
+          .single();
+
+        if (fetchError) {
+          console.error("Error fetching track streams:", fetchError);
+          return;
+        }
+
+        const currentStreams = trackData?.streams || 0;
+
+        // Increment streams count
+        const { error: updateError } = await supabase
+          .from("tracks")
+          .update({ streams: currentStreams + 1 })
+          .eq("title", title);
+
+        if (updateError) {
+          console.error("Error updating track streams:", updateError);
+        }
+      } catch (error) {
+        console.error("Error incrementing stream count:", error);
+      }
+    };
+
+    // Synchronous event handler
+    const handleTimeUpdate = () => {
+      // Check if track has played for at least 30 seconds and hasn't been counted yet
+      // Only count when actually playing (not paused)
+      if (audio.currentTime >= 30 && !hasCountedRef.current && currentTrack.title && isPlaying) {
+        hasCountedRef.current = true;
+        incrementStreamCount(currentTrack.title);
+      }
+    };
+
+    audio.addEventListener("timeupdate", handleTimeUpdate);
+
+    return () => {
+      audio.removeEventListener("timeupdate", handleTimeUpdate);
+    };
+  }, [currentTrack, isPlaying, supabase]);
 
   // Progress tracking
   useEffect(() => {
