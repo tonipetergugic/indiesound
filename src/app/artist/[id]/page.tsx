@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
-import { Play, Pause, Globe, Instagram, Facebook, Twitter, Music2 } from "lucide-react";
+import { Play, Pause, Globe, Instagram, Facebook, Twitter, Music2, MoreHorizontal } from "lucide-react";
 import { formatDuration } from "@/utils/formatDuration";
 import { usePlayer } from "@/context/PlayerContext";
 
@@ -42,6 +42,18 @@ function TrackRow({
 }) {
   const { currentTrack, isPlaying, togglePlay, setQueueAndPlay } = usePlayer();
   const [isHoveringCover, setIsHoveringCover] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    if (menuOpen) document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [menuOpen]);
 
   const coverUrl = track.cover_url
     ? supabase.storage.from("covers").getPublicUrl(track.cover_url).data?.publicUrl
@@ -173,6 +185,71 @@ function TrackRow({
       </td>
       <td style={{ padding: "5px 0", color: isCurrentTrack ? "#FFFFFF" : "#B3B3B3" }}>
         {formatDuration(track.duration || 0)}
+      </td>
+      <td style={{ padding: "5px 0", textAlign: "right" }}>
+        <div ref={menuRef} style={{ position: "relative", display: "inline-block", paddingRight: "12px" }}>
+          <MoreHorizontal
+            size={20}
+            color="#B3B3B3"
+            style={{ cursor: "pointer" }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuOpen((v) => !v);
+            }}
+          />
+          {menuOpen && (
+            <div
+              style={{
+                position: "absolute",
+                top: "100%",
+                right: 0,
+                marginTop: "8px",
+                backgroundColor: "#18181A",
+                borderRadius: "8px",
+                padding: "8px 0",
+                minWidth: "180px",
+                boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+                zIndex: 1000,
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div
+                onClick={() => {
+                  console.log("Add to playlist", track.id);
+                  setMenuOpen(false);
+                }}
+                style={{
+                  padding: "10px 16px",
+                  color: "#FFFFFF",
+                  fontSize: "14px",
+                  cursor: "pointer",
+                  transition: "background 0.2s ease",
+                }}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLDivElement).style.background = "rgba(0,255,198,0.1)")}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLDivElement).style.background = "transparent")}
+              >
+                Add to playlist
+              </div>
+              <div
+                onClick={() => {
+                  console.log("Show album (NYI)", track.id);
+                  setMenuOpen(false);
+                }}
+                style={{
+                  padding: "10px 16px",
+                  color: "#FFFFFF",
+                  fontSize: "14px",
+                  cursor: "pointer",
+                  transition: "background 0.2s ease",
+                }}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLDivElement).style.background = "rgba(0,255,198,0.1)")}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLDivElement).style.background = "transparent")}
+              >
+                Show album
+              </div>
+            </div>
+          )}
+        </div>
       </td>
     </tr>
   );
@@ -475,6 +552,7 @@ export default function ArtistPage() {
                   <th style={{ paddingBottom: "10px" }}>Title</th>
                   <th style={{ paddingBottom: "10px" }}>Streams</th>
                   <th style={{ paddingBottom: "10px" }}>Duration</th>
+                  <th style={{ paddingBottom: "10px", width: "40px" }}></th>
                 </tr>
               </thead>
               <tbody>
