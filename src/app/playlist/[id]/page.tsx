@@ -49,6 +49,7 @@ type Track = {
 type PlaylistTrack = {
   id: string;
   position: number;
+  created_at?: string; // new field for added date
   tracks: Track;
 };
 
@@ -56,6 +57,8 @@ type AvailableTrack = {
   id: string;
   title: string;
   artist: string;
+  cover_url?: string | null;
+  cover_public_url?: string | null; // computed client-side
 };
 
 function SortableRow({
@@ -70,6 +73,19 @@ function SortableRow({
   onTrackRemoved: () => void;
 }) {
   const track = playlistTrack.tracks;
+
+  const getRelativeDate = (dateString?: string) => {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    const now = new Date();
+
+    const diffTime = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays <= 0) return "today";
+    if (diffDays === 1) return "1 day ago";
+    return `${diffDays} days ago`;
+  };
   const router = useRouter();
   const { playTrack, currentTrack, isPlaying, togglePlay } = usePlayer();
   const [isHoveringCover, setIsHoveringCover] = useState(false);
@@ -275,6 +291,9 @@ function SortableRow({
       <td style={{ padding: "5px 0", color: isCurrentTrack ? "#FFFFFF" : "#B3B3B3" }}>
         {formatDuration(track.duration || 0)}
       </td>
+      <td style={{ padding: "5px 0", color: isCurrentTrack ? "#FFFFFF" : "#B3B3B3" }}>
+        {getRelativeDate(playlistTrack.created_at)}
+      </td>
       {/* Context menu */}
       <td style={{ padding: "5px 0", textAlign: "right" }}>
         <div ref={menuRef} style={{ position: "relative", display: "inline-block", paddingRight: "12px" }}>
@@ -408,6 +427,13 @@ export default function PlaylistDetailPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLDivElement>(null);
   const [showRemovedToast, setShowRemovedToast] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -482,6 +508,16 @@ export default function PlaylistDetailPage() {
     return `linear-gradient(180deg, rgba(${r},${g},${b},${opacity}) 0%, #0E0E10 100%)`;
   }, [playlist?.cover_url, paletteData]);
 
+  const filteredTracks = useMemo(() => {
+    if (!searchQuery.trim()) return availableTracks;
+    const lower = searchQuery.toLowerCase();
+    return availableTracks.filter(
+      (t) =>
+        t.title.toLowerCase().includes(lower) ||
+        t.artist.toLowerCase().includes(lower)
+    );
+  }, [availableTracks, searchQuery]);
+
   const fetchPlaylistAndTracks = useCallback(async () => {
     if (!params?.id) return;
 
@@ -520,6 +556,7 @@ export default function PlaylistDetailPage() {
       .select(`
         id,
         position,
+        created_at,
         tracks (
           id,
           title,
@@ -550,13 +587,35 @@ export default function PlaylistDetailPage() {
     setLoadingTracks(true);
     const { data, error } = await supabase
       .from("tracks")
-      .select("id, title, artist")
+      .select("id, title, artist, cover_url")
       .order("title");
 
     if (error) {
       console.error("Error loading available tracks:", error.message);
+      setAvailableTracks([]);
     } else {
-      setAvailableTracks(data || []);
+      const withPublicCovers: AvailableTrack[] = (data || []).map((t: { id: string; title: string; artist: string; cover_url?: string | null }) => {
+        let cover_public_url: string | null = null;
+
+        if (t.cover_url) {
+          if (t.cover_url.startsWith("http")) {
+            cover_public_url = t.cover_url;
+          } else {
+            const { data: pub } = supabase
+              .storage
+              .from("covers")
+              .getPublicUrl(t.cover_url);
+            cover_public_url = pub?.publicUrl || null;
+          }
+        }
+
+        return {
+          ...t,
+          cover_public_url,
+        };
+      });
+
+      setAvailableTracks(withPublicCovers);
     }
     setLoadingTracks(false);
   };
@@ -569,6 +628,7 @@ export default function PlaylistDetailPage() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setAvailableTracks([]);
+    setSearchQuery("");
   };
 
   const handleAddTrack = async (trackId: string) => {
@@ -658,9 +718,40 @@ export default function PlaylistDetailPage() {
   };
 
   const handleEditPlaylist = () => {
-    // Placeholder action
-    console.log("Edit playlist clicked");
+    if (!playlist) return;
+    setEditName(playlist.name);
+    setEditDescription(playlist.description || "");
+    setIsEditModalOpen(true);
     setIsMenuOpen(false);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!params?.id) return;
+
+    setSavingEdit(true);
+    try {
+      const { error } = await supabase
+        .from("playlists")
+        .update({
+          name: editName.trim(),
+          description: editDescription.trim() || null,
+        })
+        .eq("id", params.id);
+
+      if (error) throw error;
+
+      // Update local UI
+      setPlaylist((prev) =>
+        prev ? { ...prev, name: editName, description: editDescription } : prev
+      );
+
+      setIsEditModalOpen(false);
+    } catch (err) {
+      console.error("Error updating playlist:", err);
+      alert("Failed to update playlist. Please try again.");
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   const handleTogglePrivacy = () => {
@@ -777,6 +868,68 @@ export default function PlaylistDetailPage() {
     window.setTimeout(() => setShowRemovedToast(false), 2000);
   };
 
+  const handleCoverClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !params?.id) return;
+
+    setUploadingCover(true);
+    try {
+      // 1) Get the old cover key from DB (to delete from storage if needed)
+      const { data: oldData, error: oldErr } = await supabase
+        .from("playlists")
+        .select("cover_url")
+        .eq("id", params.id)
+        .single();
+      if (oldErr) console.warn("Could not fetch old cover_url:", oldErr.message);
+
+      // 2) Remove old storage file if it was a storage path (not an http URL)
+      if (oldData?.cover_url && !oldData.cover_url.startsWith("http")) {
+        const { error: removeErr } = await supabase
+          .storage
+          .from("playlist-covers")
+          .remove([oldData.cover_url]);
+        if (removeErr) console.warn("Failed to remove previous cover:", removeErr.message);
+      }
+
+      // 3) Upload new file
+      const safeName = file.name.replace(/\s+/g, "_");
+      const filePath = `${params.id}/${Date.now()}_${safeName}`;
+      const { error: uploadErr } = await supabase
+        .storage
+        .from("playlist-covers")
+        .upload(filePath, file, { cacheControl: "3600", upsert: false });
+      if (uploadErr) throw uploadErr;
+
+      // 4) Update DB with new storage key
+      const { error: updateErr } = await supabase
+        .from("playlists")
+        .update({ cover_url: filePath })
+        .eq("id", params.id);
+      if (updateErr) throw updateErr;
+
+      // 5) Get public URL and update UI immediately
+      const { data: publicData } = supabase
+        .storage
+        .from("playlist-covers")
+        .getPublicUrl(filePath);
+
+      if (publicData?.publicUrl) {
+        setPlaylist((prev) => (prev ? { ...prev, cover_url: publicData.publicUrl } : prev));
+      }
+    } catch (err) {
+      console.error("Error updating playlist cover:", err);
+      alert("Error updating cover. Please try again.");
+    } finally {
+      setUploadingCover(false);
+      // Reset the input so selecting the same file again triggers onChange
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   if (loading)
     return (
       <div style={{ color: "#B3B3B3", textAlign: "center", marginTop: "100px" }}>
@@ -849,8 +1002,9 @@ export default function PlaylistDetailPage() {
         
         {/* Content */}
         <div style={{ display: "flex", alignItems: "center", gap: "25px", position: "relative", zIndex: 2 }}>
-          {/* Cover */}
+          {/* Cover (click to update) */}
           <div
+            onClick={handleCoverClick}
             style={{
               width: "200px",
               height: "200px",
@@ -862,8 +1016,39 @@ export default function PlaylistDetailPage() {
               backgroundSize: "cover",
               backgroundPosition: "center",
               boxShadow: "0 4px 30px rgba(0,0,0,0.4)",
+              cursor: "pointer",
+              position: "relative",
+              overflow: "hidden",
+              transition: "opacity 0.2s ease",
             }}
-          />
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.85")}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+          >
+            {uploadingCover && (
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  backgroundColor: "rgba(0,0,0,0.6)",
+                  color: "#00FFC6",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontWeight: 600,
+                  letterSpacing: "0.3px",
+                }}
+              >
+                Uploading...
+              </div>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleCoverUpload}
+              style={{ display: "none" }}
+            />
+          </div>
 
           {/* Info */}
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -1048,6 +1233,7 @@ export default function PlaylistDetailPage() {
                 <th style={{ paddingBottom: "10px" }}>Title</th>
                 <th style={{ paddingBottom: "10px" }}>Artist</th>
                 <th style={{ paddingBottom: "10px" }}>Duration</th>
+                <th style={{ paddingBottom: "10px" }}>Added</th>
                 <th style={{ paddingBottom: "10px", width: "40px" }}></th>
               </tr>
             </thead>
@@ -1055,7 +1241,7 @@ export default function PlaylistDetailPage() {
               {tracks.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={6}
+                    colSpan={7}
                     style={{
                       padding: "40px 0",
                       textAlign: "center",
@@ -1161,7 +1347,7 @@ export default function PlaylistDetailPage() {
               }}
             >
               <h2 style={{ fontSize: "24px", fontWeight: "700", color: "#FFFFFF", margin: 0 }}>
-                Track zur Playlist hinzufügen
+                Add Track to Playlist
               </h2>
               <button
                 onClick={handleCloseModal}
@@ -1185,13 +1371,34 @@ export default function PlaylistDetailPage() {
               </button>
             </div>
 
+            {/* Search bar */}
+            <input
+              type="text"
+              placeholder="Search tracks..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: "8px",
+                border: "1px solid #333",
+                backgroundColor: "#1A1A1D",
+                color: "#FFFFFF",
+                fontSize: "14px",
+                marginBottom: "20px",
+                outline: "none",
+              }}
+              onFocus={(e) => (e.currentTarget.style.borderColor = "#00FFC6")}
+              onBlur={(e) => (e.currentTarget.style.borderColor = "#333")}
+            />
+
             {loadingTracks ? (
               <div style={{ color: "#B3B3B3", textAlign: "center", padding: "40px 0" }}>
                 Lade Tracks...
               </div>
-            ) : availableTracks.length === 0 ? (
+            ) : filteredTracks.length === 0 ? (
               <div style={{ color: "#B3B3B3", textAlign: "center", padding: "40px 0" }}>
-                Keine Tracks verfügbar.
+                {searchQuery.trim() ? "No tracks found." : "Keine Tracks verfügbar."}
               </div>
             ) : (
               <div
@@ -1201,7 +1408,7 @@ export default function PlaylistDetailPage() {
                   gap: "8px",
                 }}
               >
-                {availableTracks.map((track) => (
+                {filteredTracks.map((track) => (
                   <div
                     key={track.id}
                     style={{
@@ -1223,12 +1430,38 @@ export default function PlaylistDetailPage() {
                       e.currentTarget.style.borderColor = "#222";
                     }}
                   >
-                    <div>
-                      <div style={{ color: "#FFFFFF", fontSize: "15px", fontWeight: "500" }}>
-                        {track.title}
+                    <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                      {/* Thumbnail */}
+                      <div
+                        style={{
+                          width: "48px",
+                          height: "48px",
+                          borderRadius: "6px",
+                          overflow: "hidden",
+                          background:
+                            track.cover_public_url
+                              ? "transparent"
+                              : "linear-gradient(135deg, #00FFC6, #00E0B0)",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {track.cover_public_url ? (
+                          <img
+                            src={track.cover_public_url}
+                            alt={track.title}
+                            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                          />
+                        ) : null}
                       </div>
-                      <div style={{ color: "#B3B3B3", fontSize: "14px", marginTop: "4px" }}>
-                        {track.artist}
+
+                      {/* Text */}
+                      <div style={{ display: "flex", flexDirection: "column" }}>
+                        <div style={{ color: "#FFFFFF", fontSize: "15px", fontWeight: 500 }}>
+                          {track.title}
+                        </div>
+                        <div style={{ color: "#B3B3B3", fontSize: "14px", marginTop: "4px" }}>
+                          {track.artist}
+                        </div>
                       </div>
                     </div>
                     <button
@@ -1264,6 +1497,119 @@ export default function PlaylistDetailPage() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* EDIT PLAYLIST MODAL */}
+      {isEditModalOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(0,0,0,0.8)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => setIsEditModalOpen(false)}
+        >
+          <div
+            style={{
+              backgroundColor: "#121214",
+              borderRadius: "16px",
+              padding: "30px",
+              maxWidth: "500px",
+              width: "90%",
+              boxShadow: "0 4px 30px rgba(0,0,0,0.5)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2
+              style={{
+                fontSize: "24px",
+                fontWeight: 700,
+                marginBottom: "20px",
+                color: "#FFFFFF",
+              }}
+            >
+              Edit Playlist
+            </h2>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder="Playlist name"
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid #333",
+                  backgroundColor: "#1A1A1D",
+                  color: "#FFFFFF",
+                  fontSize: "14px",
+                }}
+              />
+              <textarea
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                placeholder="Playlist description (optional)"
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid #333",
+                  backgroundColor: "#1A1A1D",
+                  color: "#FFFFFF",
+                  fontSize: "14px",
+                  height: "100px",
+                  resize: "none",
+                }}
+              />
+            </div>
+
+            <div
+              style={{
+                marginTop: "20px",
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "10px",
+              }}
+            >
+              <button
+                onClick={() => setIsEditModalOpen(false)}
+                style={{
+                  backgroundColor: "transparent",
+                  border: "1px solid #B3B3B3",
+                  color: "#B3B3B3",
+                  borderRadius: "8px",
+                  padding: "10px 18px",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={savingEdit}
+                style={{
+                  backgroundColor: "#00FFC6",
+                  color: "#0E0E10",
+                  border: "none",
+                  borderRadius: "8px",
+                  padding: "10px 18px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#00E0B0")}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#00FFC6")}
+              >
+                {savingEdit ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
           </div>
         </div>
       )}
