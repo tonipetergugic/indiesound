@@ -765,10 +765,24 @@ export default function PlaylistDetailPage() {
     }
   };
 
-  const handleTogglePrivacy = () => {
-    // Placeholder action
-    console.log("Toggle privacy clicked");
-    setIsMenuOpen(false);
+  const handleTogglePrivacy = async () => {
+    if (!playlist) return;
+
+    const newValue = !playlist.is_public;
+
+    try {
+      const { error } = await supabase
+        .from("playlists")
+        .update({ is_public: newValue })
+        .eq("id", playlist.id);
+      if (error) throw error;
+
+      setPlaylist((prev) => prev ? { ...prev, is_public: newValue } : prev);
+      setIsMenuOpen(false);
+    } catch (err) {
+      console.error("Error toggling privacy:", err);
+      alert("Failed to change playlist visibility.");
+    }
   };
 
   // Check if current track is from this playlist
@@ -1060,7 +1074,9 @@ export default function PlaylistDetailPage() {
 
           {/* Info */}
           <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          <h4 style={{ fontSize: "14px", color: "#B3B3B3" }}>Playlist</h4>
+          <h4 style={{ fontSize: "14px", color: "#B3B3B3" }}>
+            {playlist.is_public ? "Public Playlist" : "Private Playlist"}
+          </h4>
           <h1 style={{ fontSize: "48px", fontWeight: "700", margin: "0" }}>
             {playlist.name}
           </h1>
@@ -1579,6 +1595,43 @@ export default function PlaylistDetailPage() {
                   resize: "none",
                 }}
               />
+              <label
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "10px",
+                  marginTop: "10px",
+                  cursor: "pointer",
+                  userSelect: "none",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={playlist?.is_public ?? true}
+                  onChange={async (e) => {
+                    const newValue = e.target.checked;
+                    try {
+                      await supabase
+                        .from("playlists")
+                        .update({ is_public: newValue })
+                        .eq("id", playlist?.id);
+                      setPlaylist((prev) => prev ? { ...prev, is_public: newValue } : prev);
+                    } catch (err) {
+                      console.error("Error updating public/private status:", err);
+                      alert("Could not update privacy setting. Please try again.");
+                    }
+                  }}
+                  style={{
+                    accentColor: "#00FFC6",
+                    width: "18px",
+                    height: "18px",
+                    cursor: "pointer",
+                  }}
+                />
+                <span style={{ color: "#B3B3B3", fontSize: "14px" }}>
+                  Make this playlist public
+                </span>
+              </label>
             </div>
 
             <div

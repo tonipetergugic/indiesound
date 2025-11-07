@@ -1,42 +1,148 @@
 "use client";
 
-import TrackCard from "@/components/TrackCard";
-import { usePlayer } from "@/context/PlayerContext";
-import type { Track } from "@/context/PlayerContext";
+import { useEffect, useState } from "react";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { useRouter } from "next/navigation";
+
+type Playlist = {
+  id: string;
+  name: string;
+  description?: string | null;
+  cover_url?: string | null;
+  created_at: string;
+  profiles?: {
+    display_name: string | null;
+  };
+};
 
 export default function HomePage() {
-  const { setQueue } = usePlayer();
-  
-  const demoItems: Track[] = Array.from({ length: 8 }, (_, i) => ({
-    title: `Demo Track ${i + 1}`,
-    artist: "Various Artists",
-    coverUrl: `https://picsum.photos/300?random=${i}`,
-    audioUrl: `https://www.soundhelix.com/examples/mp3/SoundHelix-Song-${i + 1}.mp3`,
-  }));
+  const supabase = createClientComponentClient();
+  const router = useRouter();
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleTrackClick = (index: number) => {
-    // Setze alle Tracks als Queue und starte am angeklickten Index
-    setQueue(demoItems, index);
-  };
+  useEffect(() => {
+    const fetchPublicPlaylists = async () => {
+      const { data, error } = await supabase
+        .from("playlists")
+        .select(`
+          id,
+          name,
+          description,
+          cover_url,
+          created_at,
+          profiles(display_name)
+        `)
+        .eq("is_public", true)
+        .order("created_at", { ascending: false });
+
+      if (!error && data) {
+        const updated = data.map((playlist: Playlist) => {
+          if (playlist.cover_url && !playlist.cover_url.startsWith("http")) {
+            const publicUrl = supabase.storage
+              .from("playlist-covers")
+              .getPublicUrl(playlist.cover_url).data.publicUrl;
+            return { ...playlist, cover_url: publicUrl };
+          }
+          return playlist;
+        });
+
+        setPlaylists(updated);
+      } else {
+        console.error("Error loading playlists:", error?.message);
+      }
+
+      setLoading(false);
+    };
+
+    fetchPublicPlaylists();
+  }, [supabase]);
+
+  if (loading)
+    return (
+      <div style={{ color: "#B3B3B3", textAlign: "center", marginTop: "100px" }}>
+        Loading playlists...
+      </div>
+    );
+
+  if (!playlists.length)
+    return (
+      <div
+        style={{
+          textAlign: "center",
+          color: "#B3B3B3",
+          marginTop: "100px",
+          fontSize: "16px",
+        }}
+      >
+        No public playlists available yet. <br /> Discover new vibes soon 🎧
+      </div>
+    );
 
   return (
     <div
       style={{
+        padding: "20px 40px",
         display: "grid",
         gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-        gap: "20px",
-        padding: "20px",
+        gap: "25px",
       }}
     >
-      {demoItems.map((item, i) => (
-        <TrackCard
-          key={i}
-          title={item.title}
-          artist={item.artist}
-          imageUrl={item.coverUrl || undefined}
-          audioUrl={item.audioUrl || undefined}
-          onPlayClick={() => handleTrackClick(i)}
-        />
+      {playlists.map((playlist) => (
+        <div
+          key={playlist.id}
+          onClick={() => router.push(`/playlist/${playlist.id}`)}
+          style={{
+            backgroundColor: "#18181A",
+            borderRadius: "12px",
+            cursor: "pointer",
+            overflow: "hidden",
+            transition: "all 0.2s ease",
+            boxShadow: "0 2px 10px rgba(0,0,0,0.3)",
+          }}
+          onMouseEnter={(e) =>
+            (e.currentTarget.style.backgroundColor = "#202022")
+          }
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.backgroundColor = "#18181A")
+          }
+        >
+          {/* Cover */}
+          <div
+            style={{
+              width: "100%",
+              aspectRatio: "1",
+              backgroundColor: "#222",
+              backgroundImage: playlist.cover_url
+                ? `url(${playlist.cover_url})`
+                : "linear-gradient(135deg, #00FFC6 0%, #00E0B0 100%)",
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+          />
+
+          {/* Info */}
+          <div style={{ padding: "12px" }}>
+            <p
+              style={{
+                fontWeight: "bold",
+                color: "#FFFFFF",
+                marginBottom: "5px",
+              }}
+            >
+              {playlist.name}
+            </p>
+            <p
+              style={{
+                color: "#B3B3B3",
+                fontSize: "13px",
+                lineHeight: "1.3em",
+              }}
+            >
+              {playlist.profiles?.display_name || "IndieSound"}
+            </p>
+          </div>
+        </div>
       ))}
     </div>
   );

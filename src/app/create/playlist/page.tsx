@@ -13,6 +13,7 @@ export default function CreatePlaylistPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [coverUrl, setCoverUrl] = useState("");
+  const [isPublic, setIsPublic] = useState(true); // ✅ NEW
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -22,14 +23,12 @@ export default function CreatePlaylistPage() {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Check file size (5 MB = 5 * 1024 * 1024 bytes)
     const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
       setUploadError("File size exceeds 5 MB. Please choose a smaller image.");
       return;
     }
 
-    // Check file type
     if (!file.type.startsWith("image/")) {
       setUploadError("Please select a valid image file.");
       return;
@@ -46,11 +45,9 @@ export default function CreatePlaylistPage() {
         return;
       }
 
-      // Generate user-based path: userId/timestamp_filename
       const fileExt = file.name.split(".").pop();
       const filePath = `${user.id}/${Date.now()}_${file.name.replace(/\s+/g, "_")}`;
 
-      // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("playlist-covers")
         .upload(filePath, file, {
@@ -64,7 +61,6 @@ export default function CreatePlaylistPage() {
         return;
       }
 
-      // Store only the storage key
       setCoverUrl(uploadData?.path || filePath);
       setUploadError("");
     } catch (error) {
@@ -74,9 +70,7 @@ export default function CreatePlaylistPage() {
     }
   };
 
-  const handleCoverClick = () => {
-    fileInputRef.current?.click();
-  };
+  const handleCoverClick = () => fileInputRef.current?.click();
 
   const handleCreatePlaylist = async () => {
     if (!name.trim()) {
@@ -100,6 +94,7 @@ export default function CreatePlaylistPage() {
         name,
         description,
         cover_url: coverUrl || null,
+        is_public: isPublic, // ✅ NEW
       },
     ]);
 
@@ -140,21 +135,8 @@ export default function CreatePlaylistPage() {
         <h2 style={{ fontSize: "24px", fontWeight: "600" }}>Create Playlist</h2>
 
         {/* Cover Upload */}
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "10px",
-            alignItems: "center",
-          }}
-        >
-          <input
-            type="file"
-            accept="image/*"
-            ref={fileInputRef}
-            onChange={handleFileSelect}
-            style={{ display: "none" }}
-          />
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px", alignItems: "center" }}>
+          <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileSelect} style={{ display: "none" }} />
           <div
             style={{
               width: "160px",
@@ -172,28 +154,15 @@ export default function CreatePlaylistPage() {
               cursor: uploading ? "wait" : "pointer",
               transition: "all 0.2s",
               boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
-              position: "relative",
             }}
             onClick={handleCoverClick}
-            onMouseEnter={(e) => {
-              if (!uploading) {
-                e.currentTarget.style.border = "2px solid rgba(0, 255, 198, 0.5)";
-                e.currentTarget.style.boxShadow = "0 0 15px rgba(0, 255, 198, 0.3)";
-              }
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.border = "none";
-              e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,0,0,0.3)";
-            }}
           >
             {uploading ? (
               <div style={{ color: "#00FFC6", fontSize: "14px" }}>Uploading...</div>
+            ) : !coverUrl ? (
+              <Upload size={32} color="#B3B3B3" />
             ) : (
-              !coverUrl ? (
-                <Upload size={32} color="#B3B3B3" />
-              ) : (
-                <div style={{ color: "#00FFC6", fontSize: "12px" }}>Cover uploaded ✓</div>
-              )
+              <div style={{ color: "#00FFC6", fontSize: "12px" }}>Cover uploaded ✓</div>
             )}
           </div>
           {uploadError && (
@@ -237,6 +206,32 @@ export default function CreatePlaylistPage() {
             outline: "none",
           }}
         />
+
+        {/* ✅ Public / Private toggle */}
+        <label
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            cursor: "pointer",
+            userSelect: "none",
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={isPublic}
+            onChange={(e) => setIsPublic(e.target.checked)}
+            style={{
+              accentColor: "#00FFC6",
+              width: "18px",
+              height: "18px",
+              cursor: "pointer",
+            }}
+          />
+          <span style={{ color: "#B3B3B3", fontSize: "14px" }}>
+            Make this playlist public
+          </span>
+        </label>
 
         {/* Error Message */}
         {errorMsg && (
